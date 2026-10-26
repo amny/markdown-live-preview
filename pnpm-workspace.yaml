@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+
+# rehype-katex の描画と、埋め込む katex の CSS・フォントのバージョンを揃える
+overrides:
+  rehype-katex>katex: ^0.19.1

@@ -1,0 +1,99 @@
+import { describe, expect, it } from 'vitest';
+import { renderIndexBody } from '../../src/render/index-page.js';
+import {
+  escapeRawText,
+  renderExportPage,
+  renderServePage,
+  SERVE_PATHS,
+  type ExportAssets,
+  type PageBody,
+} from '../../src/render/page.js';
+
+const body: PageBody = { title: 'A <b> & "c"', html: '<p>hi</p>', hasMath: false, hasMermaid: false };
+const assets: ExportAssets = {
+  githubCss: '.github{}',
+  katexCss: '.katex{}',
+  mermaidJs: 'window.mermaid={}',
+};
+
+describe('escapeRawText', () => {
+  it('neutralizes closing tags case-insensitively', () => {
+    expect(escapeRawText('a</script>b</SCRIPT>', 'script')).toBe('a<\\/script>b<\\/SCRIPT>');
+    expect(escapeRawText('a</style>', 'style')).toBe('a<\\/style>');
+  });
+});
+
+describe('renderServePage', () => {
+  it('links serve assets and escapes the title and path', () => {
+    const html = renderServePage({ ...body, filePath: 'docs/"x".md', hasCustomCss: false });
+    expect(html).toContain('<title>A &lt;b&gt; &amp; &quot;c&quot;</title>');
+    expect(html).toContain('data-mdlive-path="docs/&quot;x&quot;.md"');
+    expect(html).toContain(`href="${SERVE_PATHS.githubCss}"`);
+    expect(html).toContain(`href="${SERVE_PATHS.katexCss}"`);
+    expect(html).toContain(`src="${SERVE_PATHS.mermaidJs}"`);
+    expect(html).toContain(`src="${SERVE_PATHS.client}"`);
+    expect(html).not.toContain(SERVE_PATHS.customCss);
+    expect(html).toContain('<article class="markdown-body"><p>hi</p></article>');
+  });
+
+  it('links custom CSS after the default styles', () => {
+    const html = renderServePage({ ...body, filePath: 'a.md', hasCustomCss: true });
+    expect(html.indexOf(SERVE_PATHS.customCss)).toBeGreaterThan(html.indexOf(SERVE_PATHS.githubCss));
+  });
+});
+
+describe('renderExportPage', () => {
+  it('inlines only the assets the page needs and references nothing external', () => {
+    const html = renderExportPage(body, assets);
+    expect(html).toContain('<style>.github{}</style>');
+    expect(html).not.toContain('.katex{}');
+    expect(html).not.toContain('window.mermaid');
+    expect(html).not.toMatch(/<(link|script)[^>]+(href|src)=/);
+  });
+
+  it('inlines KaTeX CSS and Mermaid when used', () => {
+    const html = renderExportPage({ ...body, hasMath: true, hasMermaid: true }, assets);
+    expect(html).toContain('<style>.katex{}</style>');
+    expect(html).toContain('<script>window.mermaid={}</script>');
+    expect(html).toContain('__mdliveRenderMermaid');
+  });
+
+  it('places custom CSS last and escapes closing tags', () => {
+    const html = renderExportPage(body, { ...assets, customCss: 'body{}</style><script>x</script>' });
+    expect(html).toContain('<style>body{}<\\/style><script>x</script></style>');
+    expect(html.indexOf('body{}')).toBeGreaterThan(html.indexOf('.github{}'));
+  });
+});
+
+describe('renderIndexBody', () => {
+  const files = ['z.md', 'docs/b.md', 'docs/a b.md', 'docs/deep/c.markdown', 'a.md'];
+
+  it('lists directories first, then files, sorted by name', () => {
+    const { html } = renderIndexBody('root', files, 'serve');
+    expect(html).toBe(
+      '<h1>root</h1>\n<ul>' +
+        '<li>docs/<ul>' +
+        '<li>deep/<ul><li><a href="/docs/deep/c.markdown">c.markdown</a></li></ul></li>' +
+        '<li><a href="/docs/a%20b.md">a b.md</a></li>' +
+        '<li><a href="/docs/b.md">b.md</a></li>' +
+        '</ul></li>' +
+        '<li><a href="/a.md">a.md</a></li>' +
+        '<li><a href="/z.md">z.md</a></li>' +
+        '</ul>',
+    );
+  });
+
+  it('links to .html files in export mode', () => {
+    const { html } = renderIndexBody('root', ['docs/deep/c.markdown'], 'export');
+    expect(html).toContain('href="docs/deep/c.html"');
+  });
+
+  it('escapes names and shows a message for empty directories', () => {
+    expect(renderIndexBody('<root>', [], 'serve')).toEqual({
+      title: '<root>',
+      hasMath: false,
+      hasMermaid: false,
+      html: '<h1>&lt;root&gt;</h1>\n<p>No Markdown files found.</p>',
+    });
+  });
+});
