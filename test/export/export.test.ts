@@ -185,6 +185,12 @@ describe('buildSite', () => {
     expect(result.warnings).toEqual([]);
   });
 
+  it('converts container directives in exported pages', async () => {
+    const render = createExportRenderer(root);
+    const result = await render('::::outer\n:::inner\n![dot](img/dot.png)\n:::\n::::', { filePath: 'a.md', linkMode: 'export' });
+    expect(result.html).toMatch(/^<div class="outer"><div class="inner"><p><img src="data:image\/png;base64,/);
+  });
+
   it('records referenced images inside the root, including missing ones', async () => {
     const render = createExportRenderer(root);
     const result = await render(

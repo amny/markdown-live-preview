@@ -10,7 +10,7 @@ Markdown をリアルタイムに HTML 変換してブラウザでライブプ�
 ## 技術スタック
 
 - Node.js 22.18+ / TypeScript (strict) / ESM / pnpm
-- 変換: unified（remark-gfm, remark-math, rehype-raw, rehype-sanitize, rehype-katex, rehype-slug, @shikijs/rehype）
+- 変換: unified（remark-gfm, remark-math, remark-directive, rehype-raw, rehype-sanitize, rehype-katex, rehype-slug, @shikijs/rehype）
 - サーバ: `node:http` + SSE（WebSocket は使わない）
 - 監視: chokidar v4（v5 以降は Node 22.22+ が必要なため据え置き） / ブラウザ起動: open / CLI: commander
 - ビルド: tsup / テスト: vitest
@@ -38,6 +38,7 @@ src/
     page.ts           # 断片 → 完全な HTML（serve 用 / 出力用テンプレート）
     index-page.ts     # ファイル一覧ページ
     links.ts          # 相対リンク解決・.md → .html 書き換え（rehype プラグイン）
+    directives.ts     # :::name → <div class="name"> 変換とサニタイズスキーマ
     vfile-data.ts     # VFile.data の型拡張（プラグイン間で渡す情報）
   fs/
     paths.ts          # ルート外参照を防ぐ安全なパス解決

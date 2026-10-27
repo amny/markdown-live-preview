@@ -86,8 +86,43 @@ describe('createRenderer', () => {
     expect(html).not.toContain('<img');
   });
 
+  describe('container directives', () => {
+    it('turns :::name into a div with the name as its class', async () => {
+      const { html } = await render(':::test\nbody **bold**\n:::', serve);
+      expect(html).toBe('<div class="test"><p>body <strong>bold</strong></p></div>');
+    });
+
+    it('nests directives when the outer fence has more colons', async () => {
+      const { html } = await render('::::outer\na\n:::inner\nb\n:::\nc\n::::', serve);
+      expect(html).toBe('<div class="outer"><p>a</p><div class="inner"><p>b</p></div><p>c</p></div>');
+    });
+
+    it('renders the label as the first paragraph and ignores attributes', async () => {
+      const { html } = await render(':::note[Title]{.extra #id}\nbody\n:::', serve);
+      expect(html).toBe('<div class="note"><p>Title</p><p>body</p></div>');
+    });
+
+    it('renders Markdown, math and mermaid inside directives', async () => {
+      const result = await render(':::box\n$x$\n\n```mermaid\ngraph TD; A-->B\n```\n:::', serve);
+      expect(result.hasMath).toBe(true);
+      expect(result.hasMermaid).toBe(true);
+      expect(result.html).toMatch(/^<div class="box">.*<pre class="mermaid">/s);
+    });
+
+    it('keeps text and leaf directive syntax as the original text', async () => {
+      const { html } = await render('key:value and :smile: :abbr[x]{a=1}\n\n::leaf{a=1}\n\n:::\nanon\n:::', serve);
+      expect(html).toBe('<p>key:value and :smile: :abbr[x]{a=1}</p>\n<p>::leaf{a=1}</p>\n<p>:::\nanon\n:::</p>');
+    });
+
+    it('allows only directive-like class names on raw HTML divs', async () => {
+      const { html } = await render('<div class="ok bad!x">raw</div>\n\n<span class="no">s</span>', serve);
+      expect(html).toContain('<div class="ok">raw</div>');
+      expect(html).toContain('<span>s</span>');
+    });
+  });
+
   describe('links', () => {
-    const source = '[b](b.md#x) [ext](https://example.com/c.md) ![i](/img/a.png)';
+    const source ='[b](b.md#x) [ext](https://example.com/c.md) ![i](/img/a.png)';
 
     it('keeps relative links as is in serve mode', async () => {
       const { html } = await render(source, serve);

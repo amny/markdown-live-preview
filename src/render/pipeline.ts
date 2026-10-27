@@ -14,6 +14,7 @@ import remarkRehype from 'remark-rehype';
 import { unified, type PluggableList } from 'unified';
 import { visit } from 'unist-util-visit';
 import { VFile } from 'vfile';
+import { remarkDirectives, sanitizeSchema } from './directives.js';
 import { rehypeLinks, type LinkMode } from './links.js';
 import type { RenderMeta } from './vfile-data.js';
 
@@ -86,12 +87,13 @@ export const createRenderer = (extraPlugins: PluggableList = []): Renderer => {
     .use(remarkParse)
     .use(remarkGfm)
     .use(remarkMath)
+    .use(remarkDirectives)
     // 脚注の id はサニタイズで接頭辞が付くため、ここでは付けない
     .use(remarkRehype, { allowDangerousHtml: true, clobberPrefix: '' })
     .use(rehypeRaw)
-    // ユーザー入力由来の HTML はここで GitHub 準拠のスキーマでサニタイズする。
+    // ユーザー入力由来の HTML はここで GitHub 準拠のスキーマ（div の class のみ追加許可）でサニタイズする。
     // 以降のプラグインはツール自身が生成する信頼済みの出力のみを追加する
-    .use(rehypeSanitize)
+    .use(rehypeSanitize, sanitizeSchema)
     .use(rehypeMermaid)
     .use(rehypeKatex)
     .use(rehypeSlug)

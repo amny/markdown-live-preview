@@ -12,6 +12,7 @@ Markdown をリアルタイムに HTML 変換してブラウザでライブプ�
 - GitHub Flavored Markdown（テーブル、タスクリスト、取り消し線、自動リンク、脚注）
 - Shiki によるシンタックスハイライト、KaTeX による数式、Mermaid による図
 - 生 HTML は GitHub 準拠のスキーマでサニタイズ
+- `:::name` 〜 `:::` で囲んだ範囲を `<div class="name">` に変換（外側のコロンを増やせばネスト可能）
 - `build` で画像・CSS・フォント・スクリプトをすべて埋め込んだ単一ファイルの HTML を出力
 
 ## 必要環境
@@ -62,6 +63,22 @@ node dist/cli.js build [dir] --out <dir>
 - ファイル一覧の `index.html` を生成する（ルートに `index.md` がある場合はそれを使う）
 - 出力 HTML は 1 ファイルで配布できる。ただしページ間リンクはリンク先のファイルも必要
 - Mermaid を含むページは `mermaid.js` を埋め込むため約 6MB になる
+
+## ディレクティブ
+
+```markdown
+::::note
+外側
+:::warning
+内側
+:::
+::::
+```
+
+は `<div class="note"><p>外側</p><div class="warning"><p>内側</p></div></div>` になる。
+ネストするときは外側のコロンを内側より多くする。見た目はカスタム CSS で付ける。
+ラベル `:::name[ラベル]` は先頭の段落として出力し、属性 `{...}` は無視する。
+行内の `:name` や行単位の `::name` は変換せず、そのまま表示する。
 
 ## 制限事項
 
