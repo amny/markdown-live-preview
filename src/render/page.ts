@@ -15,6 +15,8 @@ export type ServePageInput = PageBody & {
   readonly filePath: string;
   readonly hasCustomCss: boolean;
   readonly theme: Theme;
+  /** デフォルトスタイル（GitHub スタイルとレイアウト）を使うか */
+  readonly defaultCss: boolean;
   /** 変換エラー。指定時はエラーバナーを表示する */
   readonly error?: string;
 };
@@ -25,8 +27,8 @@ export const ERROR_BANNER_ID = 'mdlive-error';
 /** 出力 HTML に埋め込むアセット。katexCss はフォントを data URI 化済みであること */
 export type ExportAssets = {
   readonly theme: Theme;
-  /** theme に対応する GitHub スタイル */
-  readonly githubCss: string;
+  /** theme に対応する GitHub スタイル。デフォルトスタイル無効時は指定しない */
+  readonly githubCss?: string;
   readonly katexCss: string;
   readonly mermaidJs: string;
   readonly customCss?: string;
@@ -52,31 +54,43 @@ export const escapeHtml = (text: string): string =>
 export const escapeRawText = (text: string, tagName: 'style' | 'script'): string =>
   text.replace(new RegExp(`</(${tagName})`, 'gi'), '<\\/$1');
 
+// 以下の LAYOUT_CSS・BACKGROUND_CSS は見た目のためのデフォルトスタイル（--no-default-css で外す）
 const LAYOUT_CSS = `
 .markdown-body { box-sizing: border-box; min-width: 200px; max-width: 980px; margin: 0 auto; padding: 45px; }
 @media (max-width: 767px) { .markdown-body { padding: 15px; } }
 /* コードブロックの背景は Shiki のテーマ色ではなく GitHub と同じ色にする */
 .markdown-body pre.shiki { background-color: var(--bgColor-muted) !important; }
-/* 脚注の見出しなど、スクリーンリーダー向けの要素（GitHub 本体の CSS にある定義） */
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 `;
 
-const LIGHT_CSS = 'body { margin: 0; background-color: #ffffff; }';
-const DARK_CSS = `
-body { margin: 0; background-color: #0d1117; }
-.shiki span { color: var(--shiki-dark) !important; }
-`;
+const BACKGROUND_CSS = {
+  light: 'body { margin: 0; background-color: #ffffff; }',
+  dark: 'body { margin: 0; background-color: #0d1117; }',
+} as const;
 
-/** 配色に応じたページ共通の CSS。auto のときだけ OS の設定でダーク用の指定を切り替える */
-export const baseCss = (theme: Theme): string => {
-  switch (theme) {
-    case 'auto':
-      return `html { color-scheme: light dark; }\n${LIGHT_CSS}\n@media (prefers-color-scheme: dark) {${DARK_CSS}}\n${LAYOUT_CSS}`;
-    case 'light':
-      return `html { color-scheme: light; }\n${LIGHT_CSS}\n${LAYOUT_CSS}`;
-    case 'dark':
-      return `html { color-scheme: dark; }${DARK_CSS}${LAYOUT_CSS}`;
-  }
+// 以下はデフォルトスタイルの有無に関わらず表示に必要なもの
+// 脚注の見出しなど、スクリーンリーダー向けの要素（GitHub 本体の CSS にある定義）
+const SR_ONLY_CSS =
+  '.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }';
+const SHIKI_DARK_CSS = '.shiki span { color: var(--shiki-dark) !important; }';
+
+/**
+ * 配色に応じたページ共通の CSS。auto のときだけ OS の設定でダーク用の指定を切り替える。
+ * `defaultCss` が false のときは表示に必要な最小限の指定だけを返す
+ */
+export const baseCss = (theme: Theme, defaultCss: boolean): string => {
+  const light = defaultCss ? [BACKGROUND_CSS.light] : [];
+  const dark = [...(defaultCss ? [BACKGROUND_CSS.dark] : []), SHIKI_DARK_CSS];
+  const colors = ((): readonly string[] => {
+    switch (theme) {
+      case 'auto':
+        return ['html { color-scheme: light dark; }', ...light, `@media (prefers-color-scheme: dark) {\n${dark.join('\n')}\n}`];
+      case 'light':
+        return ['html { color-scheme: light; }', ...light];
+      case 'dark':
+        return ['html { color-scheme: dark; }', ...dark];
+    }
+  })();
+  return [...colors, SR_ONLY_CSS, ...(defaultCss ? [LAYOUT_CSS] : [])].join('\n');
 };
 
 // mermaid.js の描画。auto では OS のライト／ダーク切り替え時に元のソースから描き直す。
@@ -145,9 +159,9 @@ export const renderServePage = (input: ServePageInput): string =>
   htmlDocument(
     [
       `<title>${escapeHtml(input.title)}</title>`,
-      `<link rel="stylesheet" href="${SERVE_PATHS.githubCss}">`,
+      ...(input.defaultCss ? [`<link rel="stylesheet" href="${SERVE_PATHS.githubCss}">`] : []),
       `<link rel="stylesheet" href="${SERVE_PATHS.katexCss}">`,
-      inlineStyle(baseCss(input.theme) + SERVE_CSS),
+      inlineStyle(baseCss(input.theme, input.defaultCss) + SERVE_CSS),
       ...(input.hasCustomCss ? [`<link rel="stylesheet" href="${SERVE_PATHS.customCss}" data-mdlive-custom-css>`] : []),
       `<script defer src="${SERVE_PATHS.mermaidJs}"></script>`,
       inlineScript(mermaidBootstrap(input.theme)),
@@ -165,9 +179,9 @@ export const renderExportPage = (body: PageBody, assets: ExportAssets): string =
   htmlDocument(
     [
       `<title>${escapeHtml(body.title)}</title>`,
-      inlineStyle(assets.githubCss),
+      ...(assets.githubCss === undefined ? [] : [inlineStyle(assets.githubCss)]),
       ...(body.hasMath ? [inlineStyle(assets.katexCss)] : []),
-      inlineStyle(baseCss(assets.theme)),
+      inlineStyle(baseCss(assets.theme, assets.githubCss !== undefined)),
       ...(assets.customCss === undefined ? [] : [inlineStyle(assets.customCss)]),
       ...(body.hasMermaid ? [inlineScript(assets.mermaidJs), inlineScript(mermaidBootstrap(assets.theme))] : []),
     ],

@@ -37,6 +37,7 @@ describe('startServerWithFallback', () => {
     root: process.cwd(),
     host: '127.0.0.1',
     theme: 'auto',
+    defaultCss: true,
     clientScriptPath: 'client.js',
     excludeDirs: [],
     render: createRenderer(),

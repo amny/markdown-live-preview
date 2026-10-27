@@ -18,6 +18,8 @@ export type ServerContext = {
   readonly host: string;
   readonly customCss?: string;
   readonly theme: Theme;
+  /** デフォルトスタイル（GitHub スタイルとレイアウト）を使うか */
+  readonly defaultCss: boolean;
   /** ビルド済みのブラウザ側スクリプト */
   readonly clientScriptPath: string;
   /** ファイル一覧から除外するディレクトリ（出力先など） */
@@ -139,7 +141,7 @@ const renderIndex = async (ctx: ServerContext): Promise<PageBody> => {
 };
 
 const servePage = (ctx: ServerContext, filePath: string, body: PageBody): Reply =>
-  htmlReply(200, renderServePage({ ...body, filePath, hasCustomCss: ctx.customCss !== undefined, theme: ctx.theme }));
+  htmlReply(200, renderServePage({ ...body, filePath, hasCustomCss: ctx.customCss !== undefined, theme: ctx.theme, defaultCss: ctx.defaultCss }));
 
 const routeMarkdownPage = async (ctx: ServerContext, filePath: string, absolute: string): Promise<Reply> => {
   try {
@@ -149,7 +151,7 @@ const routeMarkdownPage = async (ctx: ServerContext, filePath: string, absolute:
     ctx.log.error(message);
     // エラー表示のページを返し、修正後のライブ更新で復帰できるようにする
     const body = { title: path.posix.basename(filePath), html: '', hasMath: false, hasMermaid: false };
-    return htmlReply(500, renderServePage({ ...body, filePath, hasCustomCss: ctx.customCss !== undefined, theme: ctx.theme, error: message }));
+    return htmlReply(500, renderServePage({ ...body, filePath, hasCustomCss: ctx.customCss !== undefined, theme: ctx.theme, defaultCss: ctx.defaultCss, error: message }));
   }
 };
 
@@ -175,7 +177,7 @@ const KATEX_FONT_NAME = /^[\w-]+\.(woff2|woff|ttf)$/;
 const routeAsset = (ctx: ServerContext, name: string): Reply => {
   switch (name) {
     case 'github-markdown.css':
-      return fileReply(ASSET_FILES.githubCss(ctx.theme));
+      return ctx.defaultCss ? fileReply(ASSET_FILES.githubCss(ctx.theme)) : NOT_FOUND;
     case 'katex.css':
       return fileReply(ASSET_FILES.katexCss());
     case 'mermaid.min.js':

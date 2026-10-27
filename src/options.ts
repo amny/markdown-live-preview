@@ -19,6 +19,7 @@ export type ServeOptions = {
   readonly out?: string;
   readonly css?: string;
   readonly theme: Theme;
+  readonly defaultCss: boolean;
   readonly frontMatter: FrontMatterMode;
 };
 
@@ -28,6 +29,7 @@ export type BuildOptions = {
   readonly strict: boolean;
   readonly css?: string;
   readonly theme: Theme;
+  readonly defaultCss: boolean;
   readonly frontMatter: FrontMatterMode;
 };
 
@@ -99,6 +101,7 @@ export const parseServeOptions = (dir: string | undefined, raw: unknown, cwd: st
     ...(outPath === undefined ? {} : { out: outPath }),
     ...(cssPath === undefined ? {} : { css: cssPath }),
     theme: theme.value,
+    defaultCss: raw['defaultCss'] !== false,
     frontMatter: frontMatter.value,
   });
 };
@@ -123,6 +126,7 @@ export const parseBuildOptions = (dir: string | undefined, raw: unknown, cwd: st
     strict: raw['strict'] === true,
     ...(cssPath === undefined ? {} : { css: cssPath }),
     theme: theme.value,
+    defaultCss: raw['defaultCss'] !== false,
     frontMatter: frontMatter.value,
   });
 };

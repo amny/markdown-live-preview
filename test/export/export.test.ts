@@ -42,15 +42,21 @@ describe('KaTeX font inlining', () => {
   });
 
   it('loads the real assets without external font references', async () => {
-    const assets = await loadExportAssets('auto');
+    const assets = await loadExportAssets({ theme: 'auto', defaultCss: true });
     expect(assets.githubCss).toContain('.markdown-body');
     expect(assets.katexCss).toContain('data:font/woff2;base64,');
     expect(assets.katexCss).not.toMatch(/url\(fonts\//);
     expect(assets.mermaidJs.length).toBeGreaterThan(1000);
   });
 
+  it('leaves out the GitHub style when the default style is disabled', async () => {
+    const assets = await loadExportAssets({ theme: 'auto', defaultCss: false });
+    expect(assets.githubCss).toBeUndefined();
+    expect(assets.katexCss).toContain('data:font/woff2;base64,');
+  });
+
   it('loads the GitHub style for each theme', async () => {
-    const [auto, light, dark] = await Promise.all((['auto', 'light', 'dark'] as const).map((theme) => loadExportAssets(theme)));
+    const [auto, light, dark] = await Promise.all((['auto', 'light', 'dark'] as const).map((theme) => loadExportAssets({ theme, defaultCss: true })));
     expect(auto?.githubCss).toContain('prefers-color-scheme');
     expect(light?.githubCss).not.toContain('prefers-color-scheme');
     expect(dark?.githubCss).not.toContain('prefers-color-scheme');
@@ -121,7 +127,7 @@ describe('buildSite', () => {
   });
 
   it('writes self-contained HTML files and a file list', async () => {
-    const report = await buildSite({ root, out, strict: false, theme: 'auto', frontMatter: 'table' }, silentLogger);
+    const report = await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger);
 
     expect(report.written).toEqual(['README.md', 'docs/escape.md', 'docs/guide.md']);
     expect(report.errors).toEqual([]);
@@ -155,21 +161,21 @@ describe('buildSite', () => {
   });
 
   it('does not scan its own output directory on rebuild', async () => {
-    await buildSite({ root, out, strict: false, theme: 'auto', frontMatter: 'table' }, silentLogger);
+    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger);
     await write('dist/stale.md', '# stale');
-    const report = await buildSite({ root, out, strict: false, theme: 'auto', frontMatter: 'table' }, silentLogger);
+    const report = await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger);
     expect(report.written).not.toContain('dist/stale.md');
   });
 
   it('uses index.md as index.html instead of generating a file list', async () => {
     await write('index.md', '# Home');
-    await buildSite({ root, out, strict: false, theme: 'auto', frontMatter: 'table' }, silentLogger);
+    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger);
     expect(await readFile(path.join(out, 'index.html'), 'utf8')).toContain('<title>Home</title>');
   });
 
   it('continues after a file fails and reports the error', async () => {
     await mkdir(path.join(out, 'README.html'), { recursive: true });
-    const report = await buildSite({ root, out, strict: false, theme: 'auto', frontMatter: 'table' }, silentLogger);
+    const report = await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger);
     expect(report.errors).toHaveLength(1);
     expect(report.errors[0]).toMatch(/^README\.md: failed to write /);
     expect((await stat(path.join(out, 'docs', 'guide.html'))).isFile()).toBe(true);
@@ -178,13 +184,13 @@ describe('buildSite', () => {
   it('inlines custom CSS after the GitHub style', async () => {
     const css = path.join(work, 'custom.css');
     await writeFile(css, '.markdown-body { color: rebeccapurple; }');
-    await buildSite({ root, out, strict: false, theme: 'auto', frontMatter: 'table', css }, silentLogger);
+    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table', css }, silentLogger);
     const readme = await readFile(path.join(out, 'README.html'), 'utf8');
     expect(readme).toContain('rebeccapurple');
   });
 
   it('rejects output directories containing the root', async () => {
-    await expect(buildSite({ root, out: root, strict: false, theme: 'auto', frontMatter: 'table' }, silentLogger)).rejects.toThrow(/must not be the root/);
+    await expect(buildSite({ root, out: root, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger)).rejects.toThrow(/must not be the root/);
   });
 
   it('can be reused through createExportRenderer', async () => {
@@ -196,9 +202,9 @@ describe('buildSite', () => {
 
   it('applies the front matter mode to exported pages', async () => {
     await write('fm.md', '---\ntitle: Hello\n---\n\n# Body');
-    await buildSite({ root, out, strict: false, theme: 'auto', frontMatter: 'hide' }, silentLogger);
+    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'hide' }, silentLogger);
     expect(await readFile(path.join(out, 'fm.html'), 'utf8')).not.toContain('<table>');
-    await buildSite({ root, out, strict: false, theme: 'auto', frontMatter: 'table' }, silentLogger);
+    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger);
     expect(await readFile(path.join(out, 'fm.html'), 'utf8')).toContain('<th>title</th>');
   });
 

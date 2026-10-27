@@ -9,12 +9,12 @@ describe('parseServeOptions', () => {
   it('applies defaults', () => {
     expect(parseServeOptions(undefined, {}, cwd)).toEqual({
       ok: true,
-      value: { root: cwd, port: DEFAULT_PORT, host: DEFAULT_HOST, open: true, theme: DEFAULT_THEME, frontMatter: DEFAULT_FRONT_MATTER },
+      value: { root: cwd, port: DEFAULT_PORT, host: DEFAULT_HOST, open: true, theme: DEFAULT_THEME, defaultCss: true, frontMatter: DEFAULT_FRONT_MATTER },
     });
   });
 
   it('resolves paths relative to cwd', () => {
-    const result = parseServeOptions('docs', { port: '8080', open: false, out: 'dist', css: 'a.css', theme: 'dark', frontMatter: 'hide' }, cwd);
+    const result = parseServeOptions('docs', { port: '8080', open: false, out: 'dist', css: 'a.css', theme: 'dark', defaultCss: false, frontMatter: 'hide' }, cwd);
     expect(result).toEqual({
       ok: true,
       value: {
@@ -25,6 +25,7 @@ describe('parseServeOptions', () => {
         out: path.join(cwd, 'dist'),
         css: path.join(cwd, 'a.css'),
         theme: 'dark',
+        defaultCss: false,
         frontMatter: 'hide',
       },
     });
@@ -65,7 +66,7 @@ describe('parseBuildOptions', () => {
   it('parses options', () => {
     expect(parseBuildOptions('docs', { out: 'dist', strict: true, theme: 'light', frontMatter: 'hide' }, cwd)).toEqual({
       ok: true,
-      value: { root: path.join(cwd, 'docs'), out: path.join(cwd, 'dist'), strict: true, theme: 'light', frontMatter: 'hide' },
+      value: { root: path.join(cwd, 'docs'), out: path.join(cwd, 'dist'), strict: true, theme: 'light', defaultCss: true, frontMatter: 'hide' },
     });
     expect(parseBuildOptions(undefined, { out: 'dist', theme: 'x' }, cwd).ok).toBe(false);
   });

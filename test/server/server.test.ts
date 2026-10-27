@@ -154,6 +154,7 @@ describe('server', () => {
         host: '127.0.0.1',
         customCss: path.join(work, 'custom.css'),
         theme: 'auto',
+        defaultCss: true,
         clientScriptPath: path.join(work, 'client.js'),
         excludeDirs: [],
         render,

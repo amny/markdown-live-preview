@@ -77,11 +77,33 @@ const loadBuiltinAssets = (theme: Theme): Promise<BuiltinAssets> => {
   return loading;
 };
 
+export type ExportAssetOptions = {
+  readonly theme: Theme;
+  /** false のとき GitHub スタイルを含めない */
+  readonly defaultCss: boolean;
+  readonly customCss?: string;
+};
+
+/** build / serve --out のオプションからアセットの指定を取り出す */
+export const exportAssetOptions = (options: {
+  readonly theme: Theme;
+  readonly defaultCss: boolean;
+  readonly css?: string;
+}): ExportAssetOptions => ({
+  theme: options.theme,
+  defaultCss: options.defaultCss,
+  ...(options.css === undefined ? {} : { customCss: options.css }),
+});
+
 /** 出力 HTML に埋め込むアセットを読み込む。カスタム CSS は変更され得るため毎回読む */
-export const loadExportAssets = async (theme: Theme, customCssPath?: string): Promise<ExportAssets> => {
-  const [builtin, customCss] = await Promise.all([
-    loadBuiltinAssets(theme),
-    customCssPath === undefined ? undefined : readText(customCssPath, 'custom CSS'),
+export const loadExportAssets = async (options: ExportAssetOptions): Promise<ExportAssets> => {
+  const [{ githubCss, ...builtin }, customCss] = await Promise.all([
+    loadBuiltinAssets(options.theme),
+    options.customCss === undefined ? undefined : readText(options.customCss, 'custom CSS'),
   ]);
-  return customCss === undefined ? builtin : { ...builtin, customCss };
+  return {
+    ...builtin,
+    ...(options.defaultCss && githubCss !== undefined ? { githubCss } : {}),
+    ...(customCss === undefined ? {} : { customCss }),
+  };
 };

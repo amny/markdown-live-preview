@@ -3,7 +3,7 @@ import { describeError, type Logger } from '../log.js';
 import type { FileChange } from '../watch/watcher.js';
 import type { FrontMatterMode } from '../render/front-matter.js';
 import type { Theme } from '../render/page.js';
-import { loadExportAssets } from './assets.js';
+import { exportAssetOptions, loadExportAssets } from './assets.js';
 import { buildSite, createExportRenderer, exportFileToOutput, writeIndexPage, type ImageReferences } from './build.js';
 import { outputPathFor, removeHtmlFile } from './writer.js';
 
@@ -12,6 +12,7 @@ export type OutputSyncOptions = {
   readonly out: string;
   readonly css?: string;
   readonly theme: Theme;
+  readonly defaultCss: boolean;
   readonly frontMatter: FrontMatterMode;
 };
 
@@ -101,7 +102,7 @@ export const createOutputSync = (
       }),
     apply: (changes) =>
       enqueue('failed to update HTML output', async () => {
-        const assets = await loadExportAssets(options.theme, options.css);
+        const assets = await loadExportAssets(exportAssetOptions(options));
         for (const change of changes) await syncFile(change, assets);
         // ファイルの追加・削除があった場合は一覧も書き直す
         if (changes.some((change) => change.kind !== 'change')) {
@@ -117,7 +118,7 @@ export const createOutputSync = (
           changes.map((change) => change.path),
         );
         if (dependents.length === 0) return;
-        const assets = await loadExportAssets(options.theme, options.css);
+        const assets = await loadExportAssets(exportAssetOptions(options));
         for (const filePath of dependents) await syncFile({ kind: 'change', path: filePath }, assets);
         log.info(`re-exported ${dependents.length} file(s) that embed changed images`);
       }),

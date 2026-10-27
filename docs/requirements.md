@@ -29,6 +29,7 @@
 | `--out <dir>` | serve / build | HTML 出力先。serve では指定時のみ変更のたびに出力する。build では必須 |
 | `--css <path>` | serve / build | カスタム CSS。GitHub スタイルの後に適用（上書き方式） |
 | `--theme <mode>` | serve / build | 配色。`auto`（OS のライト／ダーク設定に追従、デフォルト）/ `light` / `dark` |
+| `--no-default-css` | serve / build | デフォルトスタイル（GitHub スタイルとレイアウト）を無効にする |
 | `--front-matter <mode>` | serve / build | フロントマターの表示。`table`（表で表示、デフォルト）/ `hide`（非表示） |
 | `--strict` | build | 参照画像の欠落などの警告をエラー扱いにして失敗させる |
 
@@ -103,6 +104,9 @@
 - `--theme light` / `--theme dark` 指定時は OS の設定に関わらず配色を固定する。
   GitHub スタイル（`github-markdown-light.css` / `github-markdown-dark.css` を使用）、背景色、コードハイライト、Mermaid の配色、`color-scheme` のすべてを指定に揃える。
 - `--css` 指定時はデフォルトスタイルの後に読み込み、上書きする（置換モードは持たない）。
+- `--no-default-css` 指定時は、見た目のためのデフォルトスタイル（GitHub スタイル、本文の幅・余白、背景色、コードブロックの背景色）を読み込まない。
+  - 表示に必要な最小限のスタイルは残す: KaTeX の CSS、脚注見出しなどスクリーンリーダー向け要素を隠す指定、コードハイライトのライト／ダーク切り替えと `color-scheme`（`--theme` に従う）、serve のエラーバナー
+  - `<article class="markdown-body">` はそのまま出力し、カスタム CSS から指定できるようにする
 
 ### 3.5 HTML 出力（build / serve --out）
 

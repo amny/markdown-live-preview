@@ -96,6 +96,7 @@ const createProgram = (cwd: string): Command => {
     .option('--out <dir>', 'also write self-contained HTML files on every change')
     .option('--css <path>', 'custom CSS applied after the GitHub style')
     .option('--theme <mode>', 'color theme: auto (follow the OS setting), light or dark', DEFAULT_THEME)
+    .option('--no-default-css', 'do not load the default GitHub style and layout')
     .option('--front-matter <mode>', 'front matter display: table or hide', DEFAULT_FRONT_MATTER)
     .action((dir: string | undefined, raw: unknown) => runServe(unwrap(parseServeOptions(dir, raw, cwd))));
 
@@ -105,6 +106,7 @@ const createProgram = (cwd: string): Command => {
     .requiredOption('--out <dir>', 'output directory')
     .option('--css <path>', 'custom CSS applied after the GitHub style')
     .option('--theme <mode>', 'color theme: auto (follow the OS setting), light or dark', DEFAULT_THEME)
+    .option('--no-default-css', 'do not load the default GitHub style and layout')
     .option('--front-matter <mode>', 'front matter display: table or hide', DEFAULT_FRONT_MATTER)
     .option('--strict', 'treat warnings such as missing images as errors')
     .action((dir: string | undefined, raw: unknown) => runBuild(unwrap(parseBuildOptions(dir, raw, cwd))));

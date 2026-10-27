@@ -27,7 +27,7 @@ describe('escapeRawText', () => {
 
 describe('renderServePage', () => {
   it('links serve assets and escapes the title and path', () => {
-    const html = renderServePage({ ...body, filePath: 'docs/"x".md', hasCustomCss: false, theme: 'auto' });
+    const html = renderServePage({ ...body, filePath: 'docs/"x".md', hasCustomCss: false, theme: 'auto', defaultCss: true });
     expect(html).toContain('<title>A &lt;b&gt; &amp; &quot;c&quot;</title>');
     expect(html).toContain('data-mdlive-path="docs/&quot;x&quot;.md"');
     expect(html).toContain(`href="${SERVE_PATHS.githubCss}"`);
@@ -39,7 +39,7 @@ describe('renderServePage', () => {
   });
 
   it('links custom CSS after the default styles', () => {
-    const html = renderServePage({ ...body, filePath: 'a.md', hasCustomCss: true, theme: 'auto' });
+    const html = renderServePage({ ...body, filePath: 'a.md', hasCustomCss: true, theme: 'auto', defaultCss: true });
     expect(html.indexOf(SERVE_PATHS.customCss)).toBeGreaterThan(html.indexOf(SERVE_PATHS.githubCss));
   });
 });
@@ -69,23 +69,48 @@ describe('renderExportPage', () => {
 
 describe('themes', () => {
   it('follows the OS setting only in auto mode', () => {
-    expect(baseCss('auto')).toContain('color-scheme: light dark');
-    expect(baseCss('auto')).toContain('@media (prefers-color-scheme: dark)');
-    expect(baseCss('light')).toContain('color-scheme: light;');
-    expect(baseCss('dark')).toContain('color-scheme: dark;');
-    for (const theme of ['light', 'dark'] as const) expect(baseCss(theme)).not.toContain('prefers-color-scheme');
+    expect(baseCss('auto', true)).toContain('color-scheme: light dark');
+    expect(baseCss('auto', true)).toContain('@media (prefers-color-scheme: dark)');
+    expect(baseCss('light', true)).toContain('color-scheme: light;');
+    expect(baseCss('dark', true)).toContain('color-scheme: dark;');
+    for (const theme of ['light', 'dark'] as const) expect(baseCss(theme, true)).not.toContain('prefers-color-scheme');
   });
 
   it('applies dark backgrounds and Shiki dark colors only for dark themes', () => {
-    expect(baseCss('light')).not.toContain('--shiki-dark');
-    expect(baseCss('dark')).toMatch(/^html \{ color-scheme: dark; \}\s*body \{ margin: 0; background-color: #0d1117; \}/);
-    expect(baseCss('dark')).toContain('.shiki span { color: var(--shiki-dark) !important; }');
+    expect(baseCss('light', true)).not.toContain('--shiki-dark');
+    expect(baseCss('dark', true)).toMatch(/^html \{ color-scheme: dark; \}\s*body \{ margin: 0; background-color: #0d1117; \}/);
+    expect(baseCss('dark', true)).toContain('.shiki span { color: var(--shiki-dark) !important; }');
+  });
+
+  it('keeps only the essential rules without the default style', () => {
+    const css = baseCss('auto', false);
+    expect(css).toContain('color-scheme: light dark');
+    expect(css).toContain('.shiki span { color: var(--shiki-dark) !important; }');
+    expect(css).toContain('.sr-only');
+    expect(css).not.toContain('background-color');
+    expect(css).not.toContain('max-width');
+    expect(baseCss('dark', false)).toBe(
+      'html { color-scheme: dark; }\n.shiki span { color: var(--shiki-dark) !important; }\n' + css.split('\n').at(-1),
+    );
+  });
+
+  it('omits the GitHub style when the default style is disabled', () => {
+    const serve = renderServePage({ ...body, filePath: 'a.md', hasCustomCss: true, theme: 'auto', defaultCss: false });
+    expect(serve).not.toContain(SERVE_PATHS.githubCss);
+    expect(serve).toContain(SERVE_PATHS.katexCss);
+    expect(serve).toContain(SERVE_PATHS.customCss);
+    expect(serve).toContain('<article class="markdown-body">');
+
+    const { githubCss: _github, ...withoutGithub } = assets;
+    const exported = renderExportPage(body, withoutGithub);
+    expect(exported).not.toContain('.github{}');
+    expect(exported).not.toContain('max-width');
   });
 
   it('fixes the mermaid theme when the page theme is fixed', () => {
     const mermaid = { ...body, hasMermaid: true };
     expect(renderExportPage(mermaid, { ...assets, theme: 'dark' })).toContain('const theme = "dark";');
-    expect(renderServePage({ ...body, filePath: 'a.md', hasCustomCss: false, theme: 'light' })).toContain(
+    expect(renderServePage({ ...body, filePath: 'a.md', hasCustomCss: false, theme: 'light', defaultCss: true })).toContain(
       'const theme = "light";',
     );
   });

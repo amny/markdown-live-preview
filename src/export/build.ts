@@ -8,7 +8,7 @@ import { DEFAULT_FRONT_MATTER, type FrontMatterMode } from '../render/front-matt
 import { renderIndexBody } from '../render/index-page.js';
 import { renderExportPage, type ExportAssets } from '../render/page.js';
 import { createRenderer, type Renderer } from '../render/pipeline.js';
-import { loadExportAssets } from './assets.js';
+import { exportAssetOptions, loadExportAssets } from './assets.js';
 import { rehypeInlineImages } from './inline.js';
 import { outputPathFor, pageSizeWarning, writeHtmlFile } from './writer.js';
 
@@ -112,7 +112,7 @@ export const buildSite = async (options: BuildOptions, log: Logger): Promise<Bui
   const conflicts = findOutputConflicts(files);
   if (conflicts.length > 0) throw new Error(conflicts.join('\n'));
 
-  const assets = await loadExportAssets(options.theme, options.css);
+  const assets = await loadExportAssets(exportAssetOptions(options));
   const render = createExportRenderer(options.root, options.frontMatter);
 
   // Shiki の言語読み込みなどを共有するため、1 ファイルずつ順に処理する
