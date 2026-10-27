@@ -13,7 +13,7 @@ Markdown をリアルタイムに HTML 変換してブラウザでライブプ�
 - 変換: unified（remark-gfm, remark-math, remark-directive, remark-frontmatter + yaml, rehype-raw, rehype-sanitize, rehype-katex, rehype-slug, @shikijs/rehype）
 - サーバ: `node:http` + SSE（WebSocket は使わない）
 - 監視: chokidar v4（v5 以降は Node 22.22+ が必要なため据え置き） / ブラウザ起動: open / CLI: commander
-- ビルド: tsup / テスト: vitest
+- ビルド: tsup / テスト: vitest / 単一実行ファイル: Node.js SEA + postject（`tsup.sea.config.ts`・`scripts/build-sea.ts`、Windows 版は `.github/workflows/build-exe.yml`）
 
 ## コマンド
 
@@ -23,6 +23,7 @@ pnpm build       # tsup でビルド
 pnpm test        # vitest
 pnpm typecheck   # tsc --noEmit
 pnpm dev [dir]   # ビルドしてから serve を起動（client.js は dist にしか生成されないため）
+pnpm build:sea   # 単一実行ファイル（Node.js SEA）を dist-sea/ に作る。対象 OS 上で実行する
 ```
 
 ## ディレクトリ構成
@@ -33,6 +34,7 @@ src/
   options.ts          # オプション型と検証
   events.ts           # サーバとブラウザで共有するライブ更新イベントの型と検証
   log.ts              # ロガー（info / warn / error）
+  assets/source.ts    # 同梱アセットの読み込み口（通常はパッケージから、SEA では実行ファイル内から）
   render/
     pipeline.ts       # md → HTML 断片（純粋関数）
     page.ts           # 断片 → 完全な HTML（serve 用 / 出力用テンプレート）
@@ -65,5 +67,7 @@ src/
 - `any` は使用禁止。外部入力は `unknown` で受けて型ガードで絞り込む。
 - エラーは握りつぶさず、対象ファイルパスと処理段階を含めたメッセージにする。1 ファイルの失敗でサーバを落とさない。
 - ファイルパスは必ず `fs/paths.ts` を通して解決し、ルートディレクトリ外へのアクセスを防ぐ。
+- GitHub スタイル・KaTeX・Mermaid・client.js などの同梱アセットは `assets/source.ts` を通して読む（パッケージのパスを直接解決しない。SEA で動かなくなるため）。
+- `node:` 接頭辞は tsup で消さない（`removeNodeProtocol: false`。`node:sea` は接頭辞なしでは読み込めない）。
 - 出力 HTML は外部参照を持たない単一ファイル完結形式を維持する（外部 URL 画像を除く）。
 - コード・コミットメッセージ・ログ出力は英語、ドキュメントとコメントは日本語でよい。

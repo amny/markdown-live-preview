@@ -1,3 +1,4 @@
+import type { AssetSource } from '../assets/source.js';
 import { validateOutDir } from '../export/build.js';
 import { createOutputSync } from '../export/sync.js';
 import type { Logger } from '../log.js';
@@ -40,7 +41,7 @@ const reportWatchError =(log: Logger) => (error: Error) => log.error(`file watch
 
 export const startServe = async (
   options: ServeOptions,
-  clientScriptPath: string,
+  assets: AssetSource,
   log: Logger,
   tuning: ServeTuning = {},
 ): Promise<ServeHandle> => {
@@ -62,7 +63,7 @@ export const startServe = async (
       ...(options.css === undefined ? {} : { customCss: options.css }),
       theme: options.theme,
       defaultCss: options.defaultCss,
-      clientScriptPath,
+      assets,
       excludeDirs,
       render,
       hub,

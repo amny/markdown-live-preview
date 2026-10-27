@@ -5,6 +5,7 @@ import { createRenderer } from '../../src/render/pipeline.js';
 import { createReloadHub } from '../../src/server/reload-hub.js';
 import { startServerWithFallback, type RunningServer, type ServerContext } from '../../src/server/server.js';
 import { createShutdownHandler } from '../../src/server/shutdown.js';
+import { createPackageAssetSource } from '../../src/assets/source.js';
 
 const createLogger = (): Logger & { readonly messages: string[] } => {
   const messages: string[] = [];
@@ -38,7 +39,7 @@ describe('startServerWithFallback', () => {
     host: '127.0.0.1',
     theme: 'auto',
     defaultCss: true,
-    clientScriptPath: 'client.js',
+    assets: createPackageAssetSource('client.js'),
     excludeDirs: [],
     render: createRenderer(),
     hub: createReloadHub(),

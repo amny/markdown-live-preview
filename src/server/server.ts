@@ -3,7 +3,7 @@ import { readFile, realpath, stat } from 'node:fs/promises';
 import http, { type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import type { FragmentResponse } from '../events.js';
-import { ASSET_FILES } from '../export/assets.js';
+import { CLIENT_ASSET, GITHUB_CSS_ASSETS, KATEX_CSS_ASSET, MERMAID_ASSET, type AssetSource } from '../assets/source.js';
 import { isInside, isMarkdownPath, resolveInside } from '../fs/paths.js';
 import { scanMarkdownFiles } from '../fs/scan.js';
 import { describeError, type Logger } from '../log.js';
@@ -20,8 +20,8 @@ export type ServerContext = {
   readonly theme: Theme;
   /** デフォルトスタイル（GitHub スタイルとレイアウト）を使うか */
   readonly defaultCss: boolean;
-  /** ビルド済みのブラウザ側スクリプト */
-  readonly clientScriptPath: string;
+  /** 同梱アセット（GitHub スタイル・KaTeX・Mermaid・ブラウザ側スクリプト）の読み込み口 */
+  readonly assets: AssetSource;
   /** ファイル一覧から除外するディレクトリ（出力先など） */
   readonly excludeDirs: readonly string[];
   readonly render: Renderer;
@@ -90,6 +90,7 @@ export const formatUrl = (host: string, port: number): string => {
 type Reply =
   | { readonly kind: 'body'; readonly status: number; readonly contentType: string; readonly body: string }
   | { readonly kind: 'file'; readonly filePath: string; readonly contentType: string }
+  | { readonly kind: 'asset'; readonly name: string; readonly contentType: string }
   | { readonly kind: 'events' };
 
 const textReply = (status: number, body: string): Reply => ({
@@ -111,6 +112,7 @@ const jsonReply = (status: number, value: FragmentResponse): Reply => ({
   body: JSON.stringify(value),
 });
 const fileReply = (filePath: string): Reply => ({ kind: 'file', filePath, contentType: contentTypeFor(filePath) });
+const assetReply = (name: string): Reply => ({ kind: 'asset', name, contentType: contentTypeFor(name) });
 
 const NOT_FOUND = textReply(404, 'Not Found');
 
@@ -172,25 +174,21 @@ const routeFragment = async (ctx: ServerContext, filePath: string): Promise<Repl
   }
 };
 
-const KATEX_FONT_NAME = /^[\w-]+\.(woff2|woff|ttf)$/;
+const KATEX_FONT_NAME = /^fonts\/[\w-]+\.(woff2|woff|ttf)$/;
 
 const routeAsset = (ctx: ServerContext, name: string): Reply => {
   switch (name) {
     case 'github-markdown.css':
-      return ctx.defaultCss ? fileReply(ASSET_FILES.githubCss(ctx.theme)) : NOT_FOUND;
+      return ctx.defaultCss ? assetReply(GITHUB_CSS_ASSETS[ctx.theme]) : NOT_FOUND;
     case 'katex.css':
-      return fileReply(ASSET_FILES.katexCss());
+      return assetReply(KATEX_CSS_ASSET);
     case 'mermaid.min.js':
-      return fileReply(ASSET_FILES.mermaidJs());
+      return assetReply(MERMAID_ASSET);
     case 'custom.css':
       return ctx.customCss === undefined ? NOT_FOUND : fileReply(ctx.customCss);
-    default: {
+    default:
       // katex.css 内の相対参照 fonts/*.woff2 を解決する
-      const font = name.startsWith('fonts/') ? name.slice('fonts/'.length) : undefined;
-      return font !== undefined && KATEX_FONT_NAME.test(font)
-        ? fileReply(path.join(path.dirname(ASSET_FILES.katexCss()), 'fonts', font))
-        : NOT_FOUND;
-    }
+      return KATEX_FONT_NAME.test(name) ? assetReply(name) : NOT_FOUND;
   }
 };
 
@@ -202,7 +200,7 @@ const route = async (ctx: ServerContext, url: URL): Promise<Reply> => {
 
   if (pathname.startsWith(INTERNAL_PREFIX)) {
     if (pathname === '/__mdlive/events') return { kind: 'events' };
-    if (pathname === SERVE_PATHS.client) return fileReply(ctx.clientScriptPath);
+    if (pathname === SERVE_PATHS.client) return assetReply(CLIENT_ASSET);
     if (pathname === '/__mdlive/fragment') return routeFragment(ctx, url.searchParams.get('path') ?? '');
     if (pathname.startsWith(ASSET_PREFIX)) return routeAsset(ctx, pathname.slice(ASSET_PREFIX.length));
     return NOT_FOUND;
@@ -232,6 +230,16 @@ const send = async (ctx: ServerContext, reply: Reply, request: IncomingMessage, 
       });
       response.end(isHead ? undefined : reply.body);
       return;
+    case 'asset': {
+      const data = await ctx.assets.read(reply.name);
+      if (data === undefined) {
+        await send(ctx, NOT_FOUND, request, response);
+        return;
+      }
+      response.writeHead(200, { ...BASE_HEADERS, 'Content-Type': reply.contentType, 'Content-Length': data.length });
+      response.end(isHead ? undefined : data);
+      return;
+    }
     case 'file': {
       const info = await stat(reply.filePath).catch(() => undefined);
       if (info === undefined || !info.isFile()) {

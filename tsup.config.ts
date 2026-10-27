@@ -6,6 +6,8 @@ export default defineConfig([
     format: ['esm'],
     target: 'node22',
     platform: 'node',
+    // node:sea は node: 接頭辞なしでは読み込めないため、接頭辞を残す
+    removeNodeProtocol: false,
     sourcemap: true,
     banner: { js: '#!/usr/bin/env node' },
   },

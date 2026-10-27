@@ -141,6 +141,15 @@
 | セキュリティ | デフォルトは localhost のみで待ち受ける。ルートディレクトリ外へのパストラバーサル（シンボリックリンク経由を含む）とドットで始まるパスの配信を禁止する。DNS リバインディング対策として Host ヘッダを検証する。生 HTML はサニタイズする |
 | エラー処理 | エラーは握りつぶさず、対象ファイルと処理段階が分かるメッセージを出力する。1 ファイルの変換失敗でサーバを停止しない |
 
+### 4.1 配布形態
+
+- npm パッケージ（`pnpm build` で生成する `dist/`）として Node.js 22.18+ 上で動作する。
+- Node.js や pnpm がない環境向けに、Node.js の Single Executable Applications（SEA）で単一の実行ファイルを生成できる（`pnpm build:sea`）。主な対象は Windows（`mdlive.exe`）。
+  - 依存パッケージを含む全コードを 1 つの CommonJS ファイルにまとめ、Node.js 本体に埋め込む。
+  - GitHub スタイル、KaTeX の CSS と woff2 フォント、`mermaid.min.js`、ブラウザ側スクリプトは実行ファイル内に埋め込み、実行時はそこから読む。
+  - 実行ファイルの生成は対象 OS 上で行う（Windows 版は GitHub Actions の Windows 環境で生成し、起動・`build`・`serve` の動作を確認する）。
+  - コード署名は行わない（初回起動時に SmartScreen の警告が出ることを許容する）。
+
 ## 5. スコープ外（初版）
 
 - PDF 出力

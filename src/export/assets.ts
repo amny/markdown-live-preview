@@ -1,27 +1,26 @@
 import { readFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
-import path from 'node:path';
+import {
+  defaultAssetSource,
+  GITHUB_CSS_ASSETS,
+  KATEX_CSS_ASSET,
+  MERMAID_ASSET,
+  type AssetSource,
+} from '../assets/source.js';
 import type { ExportAssets, Theme } from '../render/page.js';
-
-const require = createRequire(import.meta.url);
-
-const GITHUB_CSS_FILES: Readonly<Record<Theme, string>> = {
-  auto: 'github-markdown.css',
-  light: 'github-markdown-light.css',
-  dark: 'github-markdown-dark.css',
-};
-
-/** パッケージ内のファイルの絶対パス */
-export const ASSET_FILES = {
-  githubCss: (theme: Theme) => require.resolve(`github-markdown-css/${GITHUB_CSS_FILES[theme]}`),
-  katexCss: () => require.resolve('katex/dist/katex.min.css'),
-  mermaidJs: () => require.resolve('mermaid/dist/mermaid.min.js'),
-} as const;
 
 const readText = async (filePath: string, label: string): Promise<string> =>
   readFile(filePath, 'utf8').catch((cause: unknown) => {
     throw new Error(`failed to read ${label}: ${filePath}`, { cause });
   });
+
+const readAsset = async (source: AssetSource, name: string): Promise<Buffer> => {
+  const data = await source.read(name);
+  if (data === undefined) throw new Error(`bundled asset not found: ${name}`);
+  return data;
+};
+
+const readAssetText = async (source: AssetSource, name: string): Promise<string> =>
+  (await readAsset(source, name)).toString('utf8');
 
 // KaTeX の @font-face の src（woff2 / woff / ttf の列挙）
 const FONT_SRC = /src:\s*url\(fonts\/([\w-]+)\.woff2\)\s*format\("woff2"\)(?:\s*,\s*url\([^)]*\)\s*format\("[^"]*"\))*/g;
@@ -40,18 +39,10 @@ export const inlineKatexFonts = (css: string, fonts: ReadonlyMap<string, string>
     return `src:url(data:font/woff2;base64,${base64}) format("woff2")`;
   });
 
-const loadKatexCss = async (): Promise<string> => {
-  const cssPath = ASSET_FILES.katexCss();
-  const css = await readText(cssPath, 'KaTeX CSS');
-  const fontDir = path.join(path.dirname(cssPath), 'fonts');
+const loadKatexCss = async (source: AssetSource): Promise<string> => {
+  const css = await readAssetText(source, KATEX_CSS_ASSET);
   const fonts = await Promise.all(
-    katexFontNames(css).map(async (name) => {
-      const fontPath = path.join(fontDir, `${name}.woff2`);
-      const data = await readFile(fontPath).catch((cause: unknown) => {
-        throw new Error(`failed to read KaTeX font: ${fontPath}`, { cause });
-      });
-      return [name, data.toString('base64')] as const;
-    }),
+    katexFontNames(css).map(async (name) => [name, (await readAsset(source, `fonts/${name}.woff2`)).toString('base64')] as const),
   );
   return inlineKatexFonts(css, new Map(fonts));
 };
@@ -64,10 +55,11 @@ const builtinAssets = new Map<Theme, Promise<BuiltinAssets>>();
 const loadBuiltinAssets = (theme: Theme): Promise<BuiltinAssets> => {
   const cached = builtinAssets.get(theme);
   if (cached !== undefined) return cached;
+  const source = defaultAssetSource();
   const loading = Promise.all([
-    readText(ASSET_FILES.githubCss(theme), 'GitHub Markdown CSS'),
-    loadKatexCss(),
-    readText(ASSET_FILES.mermaidJs(), 'mermaid.js'),
+    readAssetText(source, GITHUB_CSS_ASSETS[theme]),
+    loadKatexCss(source),
+    readAssetText(source, MERMAID_ASSET),
   ]).then(([githubCss, katexCss, mermaidJs]) => ({ theme, githubCss, katexCss, mermaidJs }));
   builtinAssets.set(theme, loading);
   // 失敗した読み込みをキャッシュし続けないようにする

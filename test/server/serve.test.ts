@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseReloadEvent, type ReloadEvent } from '../../src/events.js';
 import type { Logger } from '../../src/log.js';
 import { startServe, type ServeHandle } from '../../src/server/serve.js';
+import { createPackageAssetSource } from '../../src/assets/source.js';
 
 const silentLogger: Logger = { info: () => undefined, warn: () => undefined, error: () => undefined };
 
@@ -64,7 +65,7 @@ describe('startServe', { timeout: 30_000 }, () => {
   const start = async (withOut: boolean): Promise<ServeHandle> => {
     const handle = await startServe(
       { root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', defaultCss: true, frontMatter: 'table', css, ...(withOut ? { out } : {}) },
-      path.join(work, 'client.js'),
+      createPackageAssetSource(path.join(work, 'client.js')),
       silentLogger,
       { debounceMs: 20 },
     );
@@ -150,7 +151,7 @@ describe('startServe', { timeout: 30_000 }, () => {
 
   it('rejects an output directory that contains the root', async () => {
     await expect(
-      startServe({ root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', defaultCss: true, frontMatter: 'table', out: root }, path.join(work, 'client.js'), silentLogger),
+      startServe({ root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', defaultCss: true, frontMatter: 'table', out: root }, createPackageAssetSource(path.join(work, 'client.js')), silentLogger),
     ).rejects.toThrow(/must not be the root/);
   });
 });

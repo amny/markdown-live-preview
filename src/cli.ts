@@ -1,8 +1,8 @@
 import { stat } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import open from 'open';
 import pkg from '../package.json' with { type: 'json' };
+import { CLIENT_ASSET, defaultAssetSource } from './assets/source.js';
 import { buildSite } from './export/build.js';
 import { consoleLogger, describeError } from './log.js';
 import { DEFAULT_FRONT_MATTER } from './render/front-matter.js';
@@ -42,11 +42,12 @@ const runServe = async (options: ServeOptions): Promise<void> => {
   await assertDirectory(options.root, 'root directory');
   if (options.css !== undefined) await assertFile(options.css, 'custom CSS');
 
-  // tsup が cli.js と同じディレクトリに出力するブラウザ側スクリプト
-  const clientScriptPath = fileURLToPath(new URL('./client.js', import.meta.url));
-  await assertFile(clientScriptPath, 'client script (run `pnpm build` first)');
+  const assets = defaultAssetSource();
+  if ((await assets.read(CLIENT_ASSET)) === undefined) {
+    throw new Error('client script not found (run `pnpm build` first)');
+  }
 
-  const server = await startServe(options, clientScriptPath, consoleLogger);
+  const server = await startServe(options, assets, consoleLogger);
   consoleLogger.info(`mdlive is serving ${options.root} at ${server.url} (press Ctrl+C to stop)`);
 
   const shutdown = createShutdownHandler({ close: server.close, log: consoleLogger, exit: (code) => process.exit(code) });

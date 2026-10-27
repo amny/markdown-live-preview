@@ -15,6 +15,7 @@ import {
 import { parseFragmentResponse, parseReloadEvent, rootRelativePathOf } from '../../src/events.js';
 import { createRenderer, type Renderer } from '../../src/render/pipeline.js';
 import type { Logger } from '../../src/log.js';
+import { createPackageAssetSource } from '../../src/assets/source.js';
 
 const silentLogger: Logger = { info: () => undefined, warn: () => undefined, error: () => undefined };
 
@@ -155,7 +156,7 @@ describe('server', () => {
         customCss: path.join(work, 'custom.css'),
         theme: 'auto',
         defaultCss: true,
-        clientScriptPath: path.join(work, 'client.js'),
+        assets: createPackageAssetSource(path.join(work, 'client.js')),
         excludeDirs: [],
         render,
         hub,

@@ -14,6 +14,7 @@
   },
   "scripts": {
     "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
+    "build:sea": "pnpm build && tsup --config tsup.sea.config.ts && tsx scripts/build-sea.ts",
     "dev": "pnpm build && node dist/cli.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -49,6 +50,7 @@
     "@types/hast": "^3.0.5",
     "@types/mdast": "^4.0.4",
     "@types/node": "^22.20.5",
+    "postject": "1.0.0-alpha.6",
     "tsup": "^9.0.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

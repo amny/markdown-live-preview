@@ -1,0 +1,75 @@
+# Windows 用の単一実行ファイル（mdlive.exe）を作り、起動・build・serve を確認してから成果物として保存する
+name: Build Windows executable
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      # 実行ファイルにはこの Node.js 本体が埋め込まれる
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm build:sea
+
+      - name: Check --version
+        shell: pwsh
+        run: |
+          $version = & dist-sea\mdlive.exe --version
+          if ($LASTEXITCODE -ne 0) { throw "mdlive.exe --version failed" }
+          Write-Output "mdlive.exe version: $version"
+
+      - name: Check build
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force smoke | Out-Null
+          Set-Content -Encoding utf8 smoke\index.md "# Smoke`n`n`$x^2`$`n`n:::note`nhi`n:::`n"
+          & dist-sea\mdlive.exe build smoke --out smoke-out
+          if ($LASTEXITCODE -ne 0) { throw "mdlive.exe build failed" }
+          $html = Get-Content -Raw smoke-out\index.html
+          foreach ($expected in @('data:font/woff2;base64,', '<div class="note">', '.markdown-body')) {
+            if (-not $html.Contains($expected)) { throw "build output does not contain $expected" }
+          }
+
+      - name: Check serve
+        shell: pwsh
+        run: |
+          $server = Start-Process -FilePath dist-sea\mdlive.exe -ArgumentList 'smoke', '--no-open', '--port', '4321' -PassThru -NoNewWindow
+          try {
+            $page = $null
+            for ($i = 0; $i -lt 30 -and $null -eq $page; $i++) {
+              try { $page = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4321/index.md } catch { Start-Sleep -Seconds 1 }
+            }
+            if ($null -eq $page) { throw "server did not respond" }
+            if (-not $page.Content.Contains('<h1 id="smoke">Smoke</h1>')) { throw "unexpected page content" }
+            foreach ($path in @('/__mdlive/client.js', '/__mdlive/assets/github-markdown.css', '/__mdlive/assets/katex.css', '/__mdlive/assets/fonts/KaTeX_Main-Regular.woff2', '/__mdlive/assets/mermaid.min.js')) {
+              $response = Invoke-WebRequest -UseBasicParsing "http://127.0.0.1:4321$path"
+              if ($response.StatusCode -ne 200) { throw "failed to fetch $path" }
+            }
+          } finally {
+            Stop-Process -Id $server.Id -Force
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mdlive-windows-x64
+          path: dist-sea/mdlive.exe
+          if-no-files-found: error

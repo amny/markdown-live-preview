@@ -28,6 +28,25 @@ pnpm install
 pnpm build
 ```
 
+## 単一実行ファイル（Windows 向け）
+
+Node.js や pnpm がない環境では、Node.js 本体と必要なファイルをすべて含めた実行ファイル `mdlive.exe` を使える。
+`main` への push ごとに GitHub Actions の「Build Windows executable」が Windows 上で作成・動作確認し、成果物 `mdlive-windows-x64` として保存する。
+
+```powershell
+mdlive.exe [dir]
+mdlive.exe build [dir] --out <dir>
+```
+
+- オプションは下記の `node dist/cli.js` と同じ
+- 約 100MB。コード署名をしていないため、初回起動時に Windows の SmartScreen が警告を出すことがある
+
+手元で作る場合は、対象の OS 上で次を実行する（Windows 上なら `dist-sea/mdlive.exe`、macOS / Linux なら `dist-sea/mdlive` ができる）。
+
+```bash
+pnpm build:sea
+```
+
 ## 使い方
 
 ### ライブプレビュー（serve）
@@ -96,6 +115,7 @@ node dist/cli.js build [dir] --out <dir>
 
 ```bash
 pnpm dev [dir]   # ビルドしてから serve を起動
+pnpm build:sea   # 単一実行ファイルを dist-sea/ に作る
 pnpm test        # vitest
 pnpm typecheck   # tsc --noEmit
 ```
