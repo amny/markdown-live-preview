@@ -15,6 +15,7 @@ import { unified, type PluggableList } from 'unified';
 import { visit } from 'unist-util-visit';
 import { VFile } from 'vfile';
 import { remarkDirectives, sanitizeSchema } from './directives.js';
+import { DEFAULT_FRONT_MATTER, frontMatterHandlers, remarkFrontMatter, type FrontMatterMode } from './front-matter.js';
 import { rehypeLinks, type LinkMode } from './links.js';
 import type { RenderMeta } from './vfile-data.js';
 
@@ -30,6 +31,10 @@ export type RenderResult = RenderMeta & {
   readonly warnings: readonly string[];
   /** 埋め込み対象として参照したローカル画像（画像埋め込みプラグイン使用時のみ） */
   readonly images: readonly string[];
+};
+
+export type RendererConfig = {
+  readonly frontMatter: FrontMatterMode;
 };
 
 export type Renderer = (source: string, options: RenderOptions) => Promise<RenderResult>;
@@ -82,14 +87,18 @@ const rehypeCollectMeta = () => (tree: Root, file: VFile): void => {
  * プロセッサは一度だけ組み立て、ファイルごとの情報は VFile 経由で渡す。
  * `extraPlugins` はリンク書き換えの後に実行される（画像の埋め込みなど出力時の処理用）。
  */
-export const createRenderer = (extraPlugins: PluggableList = []): Renderer => {
+export const createRenderer = (
+  extraPlugins: PluggableList = [],
+  config: RendererConfig = { frontMatter: DEFAULT_FRONT_MATTER },
+): Renderer => {
   const processor = unified()
     .use(remarkParse)
+    .use(remarkFrontMatter, config.frontMatter)
     .use(remarkGfm)
     .use(remarkMath)
     .use(remarkDirectives)
     // 脚注の id はサニタイズで接頭辞が付くため、ここでは付けない
-    .use(remarkRehype, { allowDangerousHtml: true, clobberPrefix: '' })
+    .use(remarkRehype, { allowDangerousHtml: true, clobberPrefix: '', handlers: frontMatterHandlers })
     .use(rehypeRaw)
     // ユーザー入力由来の HTML はここで GitHub 準拠のスキーマ（div の class のみ追加許可）でサニタイズする。
     // 以降のプラグインはツール自身が生成する信頼済みの出力のみを追加する

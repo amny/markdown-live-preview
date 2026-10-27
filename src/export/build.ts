@@ -4,6 +4,7 @@ import { isInside, toHtmlPath } from '../fs/paths.js';
 import { scanMarkdownFiles } from '../fs/scan.js';
 import { describeError, type Logger } from '../log.js';
 import type { BuildOptions } from '../options.js';
+import { DEFAULT_FRONT_MATTER, type FrontMatterMode } from '../render/front-matter.js';
 import { renderIndexBody } from '../render/index-page.js';
 import { renderExportPage, type ExportAssets } from '../render/page.js';
 import { createRenderer, type Renderer } from '../render/pipeline.js';
@@ -62,7 +63,8 @@ export const exportMarkdownFile = async (
   };
 };
 
-export const createExportRenderer = (root: string): Renderer => createRenderer([[rehypeInlineImages, { root }]]);
+export const createExportRenderer = (root: string, frontMatter: FrontMatterMode = DEFAULT_FRONT_MATTER): Renderer =>
+  createRenderer([[rehypeInlineImages, { root }]], { frontMatter });
 
 /** 1 ファイルを変換して出力先に書き出し、警告と参照した画像を返す */
 export const exportFileToOutput = async (
@@ -111,7 +113,7 @@ export const buildSite = async (options: BuildOptions, log: Logger): Promise<Bui
   if (conflicts.length > 0) throw new Error(conflicts.join('\n'));
 
   const assets = await loadExportAssets(options.theme, options.css);
-  const render = createExportRenderer(options.root);
+  const render = createExportRenderer(options.root, options.frontMatter);
 
   // Shiki の言語読み込みなどを共有するため、1 ファイルずつ順に処理する
   const outcomes: FileOutcome[] = [];

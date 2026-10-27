@@ -1,4 +1,10 @@
 import path from 'node:path';
+import {
+  DEFAULT_FRONT_MATTER,
+  FRONT_MATTER_MODES,
+  isFrontMatterMode,
+  type FrontMatterMode,
+} from './render/front-matter.js';
 import { isTheme, THEMES, type Theme } from './render/page.js';
 
 export type Result<T> =
@@ -13,6 +19,7 @@ export type ServeOptions = {
   readonly out?: string;
   readonly css?: string;
   readonly theme: Theme;
+  readonly frontMatter: FrontMatterMode;
 };
 
 export type BuildOptions = {
@@ -21,6 +28,7 @@ export type BuildOptions = {
   readonly strict: boolean;
   readonly css?: string;
   readonly theme: Theme;
+  readonly frontMatter: FrontMatterMode;
 };
 
 export const DEFAULT_PORT = 3000;
@@ -47,6 +55,13 @@ const parseTheme = (value: unknown): Result<Theme> => {
   return isTheme(value) ? ok(value) : fail(`invalid --theme "${String(value)}": expected one of ${THEMES.join(', ')}`);
 };
 
+const parseFrontMatterMode = (value: unknown): Result<FrontMatterMode> => {
+  if (value === undefined) return ok(DEFAULT_FRONT_MATTER);
+  return isFrontMatterMode(value)
+    ? ok(value)
+    : fail(`invalid --front-matter "${String(value)}": expected one of ${FRONT_MATTER_MODES.join(', ')}`);
+};
+
 const optionalString = (raw: Readonly<Record<string, unknown>>, key: string): Result<string | undefined> => {
   const value = raw[key];
   if (value === undefined) return ok(undefined);
@@ -71,6 +86,8 @@ export const parseServeOptions = (dir: string | undefined, raw: unknown, cwd: st
   if (!css.ok) return css;
   const theme = parseTheme(raw['theme']);
   if (!theme.ok) return theme;
+  const frontMatter = parseFrontMatterMode(raw['frontMatter']);
+  if (!frontMatter.ok) return frontMatter;
 
   const outPath = resolveFrom(cwd, out.value);
   const cssPath = resolveFrom(cwd, css.value);
@@ -82,6 +99,7 @@ export const parseServeOptions = (dir: string | undefined, raw: unknown, cwd: st
     ...(outPath === undefined ? {} : { out: outPath }),
     ...(cssPath === undefined ? {} : { css: cssPath }),
     theme: theme.value,
+    frontMatter: frontMatter.value,
   });
 };
 
@@ -95,6 +113,8 @@ export const parseBuildOptions = (dir: string | undefined, raw: unknown, cwd: st
   if (!css.ok) return css;
   const theme = parseTheme(raw['theme']);
   if (!theme.ok) return theme;
+  const frontMatter = parseFrontMatterMode(raw['frontMatter']);
+  if (!frontMatter.ok) return frontMatter;
 
   const cssPath = resolveFrom(cwd, css.value);
   return ok({
@@ -103,5 +123,6 @@ export const parseBuildOptions = (dir: string | undefined, raw: unknown, cwd: st
     strict: raw['strict'] === true,
     ...(cssPath === undefined ? {} : { css: cssPath }),
     theme: theme.value,
+    frontMatter: frontMatter.value,
   });
 };

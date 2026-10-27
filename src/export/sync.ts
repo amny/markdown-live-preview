@@ -1,6 +1,7 @@
 import { scanMarkdownFiles } from '../fs/scan.js';
 import { describeError, type Logger } from '../log.js';
 import type { FileChange } from '../watch/watcher.js';
+import type { FrontMatterMode } from '../render/front-matter.js';
 import type { Theme } from '../render/page.js';
 import { loadExportAssets } from './assets.js';
 import { buildSite, createExportRenderer, exportFileToOutput, writeIndexPage, type ImageReferences } from './build.js';
@@ -11,6 +12,7 @@ export type OutputSyncOptions = {
   readonly out: string;
   readonly css?: string;
   readonly theme: Theme;
+  readonly frontMatter: FrontMatterMode;
 };
 
 export type OutputSync = {
@@ -54,7 +56,7 @@ export const createOutputSync = (
   log: Logger,
   onFileError: (filePath: string, message: string) => void,
 ): OutputSync => {
-  const render = createExportRenderer(options.root);
+  const render = createExportRenderer(options.root, options.frontMatter);
   let queue: Promise<void> = Promise.resolve();
   let references: ImageReferences = new Map();
 

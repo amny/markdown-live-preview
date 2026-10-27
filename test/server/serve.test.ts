@@ -63,7 +63,7 @@ describe('startServe', { timeout: 30_000 }, () => {
 
   const start = async (withOut: boolean): Promise<ServeHandle> => {
     const handle = await startServe(
-      { root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', css, ...(withOut ? { out } : {}) },
+      { root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', frontMatter: 'table', css, ...(withOut ? { out } : {}) },
       path.join(work, 'client.js'),
       silentLogger,
       { debounceMs: 20 },
@@ -150,7 +150,7 @@ describe('startServe', { timeout: 30_000 }, () => {
 
   it('rejects an output directory that contains the root', async () => {
     await expect(
-      startServe({ root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', out: root }, path.join(work, 'client.js'), silentLogger),
+      startServe({ root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', frontMatter: 'table', out: root }, path.join(work, 'client.js'), silentLogger),
     ).rejects.toThrow(/must not be the root/);
   });
 });

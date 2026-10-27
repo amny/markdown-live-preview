@@ -86,6 +86,53 @@ describe('createRenderer', () => {
     expect(html).not.toContain('<img');
   });
 
+  describe('front matter', () => {
+    const source = '---\ntitle: Hello <b>\ntags: [a, b]\nmeta:\n  draft: true\n  rank: null\n---\n\n# Body';
+
+    it('renders front matter as a table with nested tables by default', async () => {
+      const result = await render(source, serve);
+      expect(result.title).toBe('Body');
+      expect(result.warnings).toEqual([]);
+      expect(result.html).toBe(
+        '<table><thead><tr><th>title</th><th>tags</th><th>meta</th></tr></thead>' +
+          '<tbody><tr><td>Hello &#x3C;b></td>' +
+          '<td><table><tbody><tr><td>a</td><td>b</td></tr></tbody></table></td>' +
+          '<td><table><thead><tr><th>draft</th><th>rank</th></tr></thead><tbody><tr><td>true</td><td></td></tr></tbody></table></td>' +
+          '</tr></tbody></table>\n<h1 id="body">Body</h1>',
+      );
+    });
+
+    it('hides front matter in hide mode', async () => {
+      const { html } = await createRenderer([], { frontMatter: 'hide' })(source, serve);
+      expect(html).toBe('<h1 id="body">Body</h1>');
+    });
+
+    it('renders nothing for empty front matter and wraps scalar documents', async () => {
+      expect((await render('---\n---\n\ntext', serve)).html).toBe('<p>text</p>');
+      expect((await render('---\njust text\n---', serve)).html).toBe(
+        '<table><tbody><tr><td>just text</td></tr></tbody></table>',
+      );
+    });
+
+    it('warns about invalid YAML and shows the source', async () => {
+      const broken = '---\ntitle: [unclosed\n---\n\nbody';
+      const table = await render(broken, serve);
+      expect(table.warnings).toHaveLength(1);
+      expect(table.warnings[0]).toMatch(/^invalid front matter YAML: /);
+      expect(table.html).toContain('<pre class="shiki');
+      expect(table.html).toContain('unclosed');
+
+      const hidden = await createRenderer([], { frontMatter: 'hide' })(broken, serve);
+      expect(hidden.warnings).toHaveLength(1);
+      expect(hidden.html).toBe('<p>body</p>');
+    });
+
+    it('only treats front matter at the start of the file', async () => {
+      const { html } = await render('text\n\n---\na: 1\n---', serve);
+      expect(html).not.toContain('<table>');
+    });
+  });
+
   describe('container directives', () => {
     it('turns :::name into a div with the name as its class', async () => {
       const { html } = await render(':::test\nbody **bold**\n:::', serve);

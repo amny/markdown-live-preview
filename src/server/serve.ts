@@ -51,7 +51,7 @@ export const startServe = async (
   const excludeDirs = options.out === undefined ? [] : [options.out];
   const watchOptions = tuning.debounceMs === undefined ? {} : { debounceMs: tuning.debounceMs };
 
-  const render = createRenderer();
+  const render = createRenderer([], { frontMatter: options.frontMatter });
   warmUp(render, log);
   const hub = createReloadHub();
 
@@ -78,6 +78,7 @@ export const startServe = async (
             root: options.root,
             out: options.out,
             theme: options.theme,
+            frontMatter: options.frontMatter,
             ...(options.css === undefined ? {} : { css: options.css }),
           },
           log,
