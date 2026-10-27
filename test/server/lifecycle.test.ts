@@ -36,6 +36,7 @@ describe('startServerWithFallback', () => {
   const context = (log: Logger): ServerContext => ({
     root: process.cwd(),
     host: '127.0.0.1',
+    theme: 'auto',
     clientScriptPath: 'client.js',
     excludeDirs: [],
     render: createRenderer(),

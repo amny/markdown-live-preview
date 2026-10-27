@@ -110,7 +110,7 @@ export const buildSite = async (options: BuildOptions, log: Logger): Promise<Bui
   const conflicts = findOutputConflicts(files);
   if (conflicts.length > 0) throw new Error(conflicts.join('\n'));
 
-  const assets = await loadExportAssets(options.css);
+  const assets = await loadExportAssets(options.theme, options.css);
   const render = createExportRenderer(options.root);
 
   // Shiki の言語読み込みなどを共有するため、1 ファイルずつ順に処理する

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderIndexBody } from '../../src/render/index-page.js';
 import {
+  baseCss,
   escapeRawText,
   renderExportPage,
   renderServePage,
@@ -11,6 +12,7 @@ import {
 
 const body: PageBody = { title: 'A <b> & "c"', html: '<p>hi</p>', hasMath: false, hasMermaid: false };
 const assets: ExportAssets = {
+  theme: 'auto',
   githubCss: '.github{}',
   katexCss: '.katex{}',
   mermaidJs: 'window.mermaid={}',
@@ -25,7 +27,7 @@ describe('escapeRawText', () => {
 
 describe('renderServePage', () => {
   it('links serve assets and escapes the title and path', () => {
-    const html = renderServePage({ ...body, filePath: 'docs/"x".md', hasCustomCss: false });
+    const html = renderServePage({ ...body, filePath: 'docs/"x".md', hasCustomCss: false, theme: 'auto' });
     expect(html).toContain('<title>A &lt;b&gt; &amp; &quot;c&quot;</title>');
     expect(html).toContain('data-mdlive-path="docs/&quot;x&quot;.md"');
     expect(html).toContain(`href="${SERVE_PATHS.githubCss}"`);
@@ -37,7 +39,7 @@ describe('renderServePage', () => {
   });
 
   it('links custom CSS after the default styles', () => {
-    const html = renderServePage({ ...body, filePath: 'a.md', hasCustomCss: true });
+    const html = renderServePage({ ...body, filePath: 'a.md', hasCustomCss: true, theme: 'auto' });
     expect(html.indexOf(SERVE_PATHS.customCss)).toBeGreaterThan(html.indexOf(SERVE_PATHS.githubCss));
   });
 });
@@ -62,6 +64,30 @@ describe('renderExportPage', () => {
     const html = renderExportPage(body, { ...assets, customCss: 'body{}</style><script>x</script>' });
     expect(html).toContain('<style>body{}<\\/style><script>x</script></style>');
     expect(html.indexOf('body{}')).toBeGreaterThan(html.indexOf('.github{}'));
+  });
+});
+
+describe('themes', () => {
+  it('follows the OS setting only in auto mode', () => {
+    expect(baseCss('auto')).toContain('color-scheme: light dark');
+    expect(baseCss('auto')).toContain('@media (prefers-color-scheme: dark)');
+    expect(baseCss('light')).toContain('color-scheme: light;');
+    expect(baseCss('dark')).toContain('color-scheme: dark;');
+    for (const theme of ['light', 'dark'] as const) expect(baseCss(theme)).not.toContain('prefers-color-scheme');
+  });
+
+  it('applies dark backgrounds and Shiki dark colors only for dark themes', () => {
+    expect(baseCss('light')).not.toContain('--shiki-dark');
+    expect(baseCss('dark')).toMatch(/^html \{ color-scheme: dark; \}\s*body \{ margin: 0; background-color: #0d1117; \}/);
+    expect(baseCss('dark')).toContain('.shiki span { color: var(--shiki-dark) !important; }');
+  });
+
+  it('fixes the mermaid theme when the page theme is fixed', () => {
+    const mermaid = { ...body, hasMermaid: true };
+    expect(renderExportPage(mermaid, { ...assets, theme: 'dark' })).toContain('const theme = "dark";');
+    expect(renderServePage({ ...body, filePath: 'a.md', hasCustomCss: false, theme: 'light' })).toContain(
+      'const theme = "light";',
+    );
   });
 });
 

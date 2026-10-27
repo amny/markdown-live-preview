@@ -28,6 +28,7 @@
 | `--no-open` | serve | ブラウザを自動起動しない |
 | `--out <dir>` | serve / build | HTML 出力先。serve では指定時のみ変更のたびに出力する。build では必須 |
 | `--css <path>` | serve / build | カスタム CSS。GitHub スタイルの後に適用（上書き方式） |
+| `--theme <mode>` | serve / build | 配色。`auto`（OS のライト／ダーク設定に追従、デフォルト）/ `light` / `dark` |
 | `--strict` | build | 参照画像の欠落などの警告をエラー扱いにして失敗させる |
 
 ### 2.3 終了
@@ -93,6 +94,8 @@
 ### 3.4 スタイル
 
 - デフォルトは `github-markdown-css` を使い、OS のライト／ダーク設定（`prefers-color-scheme`）に追従する。
+- `--theme light` / `--theme dark` 指定時は OS の設定に関わらず配色を固定する。
+  GitHub スタイル（`github-markdown-light.css` / `github-markdown-dark.css` を使用）、背景色、コードハイライト、Mermaid の配色、`color-scheme` のすべてを指定に揃える。
 - `--css` 指定時はデフォルトスタイルの後に読み込み、上書きする（置換モードは持たない）。
 
 ### 3.5 HTML 出力（build / serve --out）

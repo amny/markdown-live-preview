@@ -8,7 +8,7 @@ import { isInside, isMarkdownPath, resolveInside } from '../fs/paths.js';
 import { scanMarkdownFiles } from '../fs/scan.js';
 import { describeError, type Logger } from '../log.js';
 import { renderIndexBody } from '../render/index-page.js';
-import { renderServePage, SERVE_PATHS, type PageBody } from '../render/page.js';
+import { renderServePage, SERVE_PATHS, type PageBody, type Theme } from '../render/page.js';
 import type { Renderer } from '../render/pipeline.js';
 import type { ReloadHub } from './reload-hub.js';
 
@@ -17,6 +17,7 @@ export type ServerContext = {
   /** バインドアドレス。Host ヘッダの検証に使う */
   readonly host: string;
   readonly customCss?: string;
+  readonly theme: Theme;
   /** ビルド済みのブラウザ側スクリプト */
   readonly clientScriptPath: string;
   /** ファイル一覧から除外するディレクトリ（出力先など） */
@@ -138,7 +139,7 @@ const renderIndex = async (ctx: ServerContext): Promise<PageBody> => {
 };
 
 const servePage = (ctx: ServerContext, filePath: string, body: PageBody): Reply =>
-  htmlReply(200, renderServePage({ ...body, filePath, hasCustomCss: ctx.customCss !== undefined }));
+  htmlReply(200, renderServePage({ ...body, filePath, hasCustomCss: ctx.customCss !== undefined, theme: ctx.theme }));
 
 const routeMarkdownPage = async (ctx: ServerContext, filePath: string, absolute: string): Promise<Reply> => {
   try {
@@ -148,7 +149,7 @@ const routeMarkdownPage = async (ctx: ServerContext, filePath: string, absolute:
     ctx.log.error(message);
     // エラー表示のページを返し、修正後のライブ更新で復帰できるようにする
     const body = { title: path.posix.basename(filePath), html: '', hasMath: false, hasMermaid: false };
-    return htmlReply(500, renderServePage({ ...body, filePath, hasCustomCss: ctx.customCss !== undefined, error: message }));
+    return htmlReply(500, renderServePage({ ...body, filePath, hasCustomCss: ctx.customCss !== undefined, theme: ctx.theme, error: message }));
   }
 };
 
@@ -174,7 +175,7 @@ const KATEX_FONT_NAME = /^[\w-]+\.(woff2|woff|ttf)$/;
 const routeAsset = (ctx: ServerContext, name: string): Reply => {
   switch (name) {
     case 'github-markdown.css':
-      return fileReply(ASSET_FILES.githubCss());
+      return fileReply(ASSET_FILES.githubCss(ctx.theme));
     case 'katex.css':
       return fileReply(ASSET_FILES.katexCss());
     case 'mermaid.min.js':

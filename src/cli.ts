@@ -10,6 +10,7 @@ import { createShutdownHandler } from './server/shutdown.js';
 import {
   DEFAULT_HOST,
   DEFAULT_PORT,
+  DEFAULT_THEME,
   parseBuildOptions,
   parseServeOptions,
   type BuildOptions,
@@ -93,6 +94,7 @@ const createProgram = (cwd: string): Command => {
     .option('--no-open', 'do not open the browser automatically')
     .option('--out <dir>', 'also write self-contained HTML files on every change')
     .option('--css <path>', 'custom CSS applied after the GitHub style')
+    .option('--theme <mode>', 'color theme: auto (follow the OS setting), light or dark', DEFAULT_THEME)
     .action((dir: string | undefined, raw: unknown) => runServe(unwrap(parseServeOptions(dir, raw, cwd))));
 
   program
@@ -100,6 +102,7 @@ const createProgram = (cwd: string): Command => {
     .description('export Markdown files in <dir> as self-contained HTML files')
     .requiredOption('--out <dir>', 'output directory')
     .option('--css <path>', 'custom CSS applied after the GitHub style')
+    .option('--theme <mode>', 'color theme: auto (follow the OS setting), light or dark', DEFAULT_THEME)
     .option('--strict', 'treat warnings such as missing images as errors')
     .action((dir: string | undefined, raw: unknown) => runBuild(unwrap(parseBuildOptions(dir, raw, cwd))));
 

@@ -1,13 +1,19 @@
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import type { ExportAssets } from '../render/page.js';
+import type { ExportAssets, Theme } from '../render/page.js';
 
 const require = createRequire(import.meta.url);
 
+const GITHUB_CSS_FILES: Readonly<Record<Theme, string>> = {
+  auto: 'github-markdown.css',
+  light: 'github-markdown-light.css',
+  dark: 'github-markdown-dark.css',
+};
+
 /** パッケージ内のファイルの絶対パス */
 export const ASSET_FILES = {
-  githubCss: () => require.resolve('github-markdown-css/github-markdown.css'),
+  githubCss: (theme: Theme) => require.resolve(`github-markdown-css/${GITHUB_CSS_FILES[theme]}`),
   katexCss: () => require.resolve('katex/dist/katex.min.css'),
   mermaidJs: () => require.resolve('mermaid/dist/mermaid.min.js'),
 } as const;
@@ -52,26 +58,29 @@ const loadKatexCss = async (): Promise<string> => {
 
 type BuiltinAssets = Omit<ExportAssets, 'customCss'>;
 
-let builtinAssets: Promise<BuiltinAssets> | undefined;
+const builtinAssets = new Map<Theme, Promise<BuiltinAssets>>();
 
-/** 組み込みアセットはプロセス内で一度だけ読み込む */
-const loadBuiltinAssets = (): Promise<BuiltinAssets> => {
-  builtinAssets ??= Promise.all([
-    readText(ASSET_FILES.githubCss(), 'GitHub Markdown CSS'),
+/** 組み込みアセットはプロセス内で配色ごとに一度だけ読み込む */
+const loadBuiltinAssets = (theme: Theme): Promise<BuiltinAssets> => {
+  const cached = builtinAssets.get(theme);
+  if (cached !== undefined) return cached;
+  const loading = Promise.all([
+    readText(ASSET_FILES.githubCss(theme), 'GitHub Markdown CSS'),
     loadKatexCss(),
     readText(ASSET_FILES.mermaidJs(), 'mermaid.js'),
-  ]).then(([githubCss, katexCss, mermaidJs]) => ({ githubCss, katexCss, mermaidJs }));
+  ]).then(([githubCss, katexCss, mermaidJs]) => ({ theme, githubCss, katexCss, mermaidJs }));
+  builtinAssets.set(theme, loading);
   // 失敗した読み込みをキャッシュし続けないようにする
-  builtinAssets.catch(() => {
-    builtinAssets = undefined;
+  loading.catch(() => {
+    builtinAssets.delete(theme);
   });
-  return builtinAssets;
+  return loading;
 };
 
 /** 出力 HTML に埋め込むアセットを読み込む。カスタム CSS は変更され得るため毎回読む */
-export const loadExportAssets = async (customCssPath?: string): Promise<ExportAssets> => {
+export const loadExportAssets = async (theme: Theme, customCssPath?: string): Promise<ExportAssets> => {
   const [builtin, customCss] = await Promise.all([
-    loadBuiltinAssets(),
+    loadBuiltinAssets(theme),
     customCssPath === undefined ? undefined : readText(customCssPath, 'custom CSS'),
   ]);
   return customCss === undefined ? builtin : { ...builtin, customCss };

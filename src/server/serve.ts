@@ -60,6 +60,7 @@ export const startServe = async (
       root: options.root,
       host: options.host,
       ...(options.css === undefined ? {} : { customCss: options.css }),
+      theme: options.theme,
       clientScriptPath,
       excludeDirs,
       render,
@@ -73,7 +74,12 @@ export const startServe = async (
     options.out === undefined
       ? undefined
       : createOutputSync(
-          { root: options.root, out: options.out, ...(options.css === undefined ? {} : { css: options.css }) },
+          {
+            root: options.root,
+            out: options.out,
+            theme: options.theme,
+            ...(options.css === undefined ? {} : { css: options.css }),
+          },
           log,
           (path, message) => hub.broadcast({ type: 'error', path, message }),
         );

@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { isTheme, THEMES, type Theme } from './render/page.js';
 
 export type Result<T> =
   | { readonly ok: true; readonly value: T }
@@ -11,6 +12,7 @@ export type ServeOptions = {
   readonly open: boolean;
   readonly out?: string;
   readonly css?: string;
+  readonly theme: Theme;
 };
 
 export type BuildOptions = {
@@ -18,10 +20,12 @@ export type BuildOptions = {
   readonly out: string;
   readonly strict: boolean;
   readonly css?: string;
+  readonly theme: Theme;
 };
 
 export const DEFAULT_PORT = 3000;
 export const DEFAULT_HOST = '127.0.0.1';
+export const DEFAULT_THEME: Theme = 'auto';
 
 const ok = <T>(value: T): Result<T> => ({ ok: true, value });
 const fail = <T>(error: string): Result<T> => ({ ok: false, error });
@@ -36,6 +40,11 @@ const parsePort = (value: unknown): Result<number> => {
   return /^\d+$/.test(text) && port >= 1 && port <= 65535
     ? ok(port)
     : fail(`invalid --port "${text}": expected an integer between 1 and 65535`);
+};
+
+const parseTheme = (value: unknown): Result<Theme> => {
+  if (value === undefined) return ok(DEFAULT_THEME);
+  return isTheme(value) ? ok(value) : fail(`invalid --theme "${String(value)}": expected one of ${THEMES.join(', ')}`);
 };
 
 const optionalString = (raw: Readonly<Record<string, unknown>>, key: string): Result<string | undefined> => {
@@ -60,6 +69,8 @@ export const parseServeOptions = (dir: string | undefined, raw: unknown, cwd: st
   if (!out.ok) return out;
   const css = optionalString(raw, 'css');
   if (!css.ok) return css;
+  const theme = parseTheme(raw['theme']);
+  if (!theme.ok) return theme;
 
   const outPath = resolveFrom(cwd, out.value);
   const cssPath = resolveFrom(cwd, css.value);
@@ -70,6 +81,7 @@ export const parseServeOptions = (dir: string | undefined, raw: unknown, cwd: st
     open: raw['open'] !== false,
     ...(outPath === undefined ? {} : { out: outPath }),
     ...(cssPath === undefined ? {} : { css: cssPath }),
+    theme: theme.value,
   });
 };
 
@@ -81,6 +93,8 @@ export const parseBuildOptions = (dir: string | undefined, raw: unknown, cwd: st
   if (out.value === undefined) return fail('missing required option --out <dir>');
   const css = optionalString(raw, 'css');
   if (!css.ok) return css;
+  const theme = parseTheme(raw['theme']);
+  if (!theme.ok) return theme;
 
   const cssPath = resolveFrom(cwd, css.value);
   return ok({
@@ -88,5 +102,6 @@ export const parseBuildOptions = (dir: string | undefined, raw: unknown, cwd: st
     out: path.resolve(cwd, out.value),
     strict: raw['strict'] === true,
     ...(cssPath === undefined ? {} : { css: cssPath }),
+    theme: theme.value,
   });
 };

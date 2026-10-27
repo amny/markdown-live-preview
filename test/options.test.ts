@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_HOST, DEFAULT_PORT, parseBuildOptions, parseServeOptions } from '../src/options.js';
+import { DEFAULT_HOST, DEFAULT_PORT, DEFAULT_THEME, parseBuildOptions, parseServeOptions } from '../src/options.js';
 
 const cwd = path.resolve('/work');
 
@@ -8,12 +8,12 @@ describe('parseServeOptions', () => {
   it('applies defaults', () => {
     expect(parseServeOptions(undefined, {}, cwd)).toEqual({
       ok: true,
-      value: { root: cwd, port: DEFAULT_PORT, host: DEFAULT_HOST, open: true },
+      value: { root: cwd, port: DEFAULT_PORT, host: DEFAULT_HOST, open: true, theme: DEFAULT_THEME },
     });
   });
 
   it('resolves paths relative to cwd', () => {
-    const result = parseServeOptions('docs', { port: '8080', open: false, out: 'dist', css: 'a.css' }, cwd);
+    const result = parseServeOptions('docs', { port: '8080', open: false, out: 'dist', css: 'a.css', theme: 'dark' }, cwd);
     expect(result).toEqual({
       ok: true,
       value: {
@@ -23,6 +23,7 @@ describe('parseServeOptions', () => {
         open: false,
         out: path.join(cwd, 'dist'),
         css: path.join(cwd, 'a.css'),
+        theme: 'dark',
       },
     });
   });
@@ -30,6 +31,13 @@ describe('parseServeOptions', () => {
   it.each(['0', '65536', 'abc', '3000.5', '-1'])('rejects invalid port %s', (port) => {
     const result = parseServeOptions(undefined, { port }, cwd);
     expect(result.ok).toBe(false);
+  });
+
+  it.each(['system', '', 'DARK'])('rejects invalid theme %s', (theme) => {
+    expect(parseServeOptions(undefined, { theme }, cwd)).toEqual({
+      ok: false,
+      error: `invalid --theme "${theme}": expected one of auto, light, dark`,
+    });
   });
 
   it('rejects non-object input', () => {
@@ -46,9 +54,10 @@ describe('parseBuildOptions', () => {
   });
 
   it('parses options', () => {
-    expect(parseBuildOptions('docs', { out: 'dist', strict: true }, cwd)).toEqual({
+    expect(parseBuildOptions('docs', { out: 'dist', strict: true, theme: 'light' }, cwd)).toEqual({
       ok: true,
-      value: { root: path.join(cwd, 'docs'), out: path.join(cwd, 'dist'), strict: true },
+      value: { root: path.join(cwd, 'docs'), out: path.join(cwd, 'dist'), strict: true, theme: 'light' },
     });
+    expect(parseBuildOptions(undefined, { out: 'dist', theme: 'x' }, cwd).ok).toBe(false);
   });
 });
