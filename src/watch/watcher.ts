@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { watch } from 'chokidar';
-import { isMarkdownPath, toRelativePosix } from '../fs/paths.js';
+import { toRelativePosix } from '../fs/paths.js';
 import { isExcludedDir } from '../fs/scan.js';
 
 export type ChangeKind = 'add' | 'change' | 'unlink';
@@ -66,15 +66,17 @@ export const createDebouncer = (delayMs: number, flush: (changes: readonly FileC
   };
 };
 
-export type WatchMarkdownOptions = {
+export type WatchFilesOptions = {
+  /** 監視対象のファイルか（拡張子などで判定する） */
+  readonly isTarget: (filePath: string) => boolean;
   readonly excludeDirs?: readonly string[];
   readonly debounceMs?: number;
 };
 
-/** root 配下の Markdown ファイルの追加・変更・削除を監視する */
-export const watchMarkdown = (
+/** root 配下の対象ファイルの追加・変更・削除を監視する */
+export const watchFiles = (
   root: string,
-  options: WatchMarkdownOptions,
+  options: WatchFilesOptions,
   onChanges: (changes: readonly FileChange[]) => void,
   onError: (error: Error) => void,
 ): Watcher => {
@@ -85,12 +87,12 @@ export const watchMarkdown = (
     ignoreInitial: true,
     followSymlinks: false,
     ignored: (target, stats) =>
-      target !== root && (isExcludedDir(target, excludeDirs) || (stats?.isFile() === true && !isMarkdownPath(target))),
+      target !== root && (isExcludedDir(target, excludeDirs) || (stats?.isFile() === true && !options.isTarget(target))),
   });
 
   const push = (kind: ChangeKind) => (target: string) => {
     // ignored の判定時に stats が無い場合もあるため、ここでも拡張子を確認する
-    if (isMarkdownPath(target)) debouncer.push(toRelativePosix(root, target), kind);
+    if (options.isTarget(target)) debouncer.push(toRelativePosix(root, target), kind);
   };
 
   watcher

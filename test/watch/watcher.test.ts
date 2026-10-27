@@ -2,10 +2,11 @@ import { mkdir, mkdtemp, rm, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { isMarkdownPath } from '../../src/fs/paths.js';
 import {
   createDebouncer,
   mergeChange,
-  watchMarkdown,
+  watchFiles,
   watchSingleFile,
   type ChangeKind,
   type FileChange,
@@ -75,7 +76,7 @@ describe('createDebouncer', () => {
 // macOS の fs.watch は開始直後の変更を取りこぼすことがあるため、準備完了後に少し待つ
 const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 250));
 
-describe('watchMarkdown', { timeout: 15_000 }, () => {
+describe('watchFiles', { timeout: 15_000 }, () => {
   let root: string;
   let watcher: Watcher | undefined;
 
@@ -95,9 +96,9 @@ describe('watchMarkdown', { timeout: 15_000 }, () => {
 
   it('reports Markdown changes relative to the root and ignores other files', async () => {
     const received: FileChange[] = [];
-    watcher = watchMarkdown(
+    watcher = watchFiles(
       root,
-      { excludeDirs: [path.join(root, 'dist')], debounceMs: 20 },
+      { isTarget: isMarkdownPath, excludeDirs: [path.join(root, 'dist')], debounceMs: 20 },
       (changes) => received.push(...changes),
       (error) => {
         throw error;

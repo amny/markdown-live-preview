@@ -2,11 +2,17 @@ import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { isInside, isMarkdownPath, resolveInside, toHtmlPath } from '../../src/fs/paths.js';
+import { isImagePath, isInside, isMarkdownPath, resolveInside, toHtmlPath } from '../../src/fs/paths.js';
 import { scanMarkdownFiles } from '../../src/fs/scan.js';
 
 describe('paths', () => {
   const root = path.resolve('/work/root');
+
+  it('detects image paths', () => {
+    expect(['a.png', 'a.JPG', 'a.jpeg', 'a.gif', 'a.webp', 'a.avif', 'a.svg'].every(isImagePath)).toBe(true);
+    expect(isImagePath('a.md')).toBe(false);
+    expect(isImagePath('a.png.txt')).toBe(false);
+  });
 
   it('detects Markdown paths and maps them to HTML', () => {
     expect(isMarkdownPath('a.md')).toBe(true);

@@ -1,5 +1,5 @@
 // ブラウザ側スクリプト。SSE でサーバの変更通知を受け、表示中のページだけを差し替える。
-import { parseFragmentResponse, parseReloadEvent, type ReloadEvent } from '../events.js';
+import { parseFragmentResponse, parseReloadEvent, rootRelativePathOf, type ReloadEvent } from '../events.js';
 import { ERROR_BANNER_ID } from '../render/page.js';
 
 declare global {
@@ -73,8 +73,22 @@ const reloadCustomCss = (): void => {
   link.href = url.toString();
 };
 
+/** 変更された画像を表示している img だけを、キャッシュ回避用のクエリ付きで読み込み直す */
+const reloadImage = (assetPath: string): void => {
+  document.querySelectorAll<HTMLImageElement>('article.markdown-body img').forEach((image) => {
+    const src = image.getAttribute('src');
+    if (src === null || rootRelativePathOf(src, location.href) !== assetPath) return;
+    const url = new URL(src, location.href);
+    url.searchParams.set('t', String(Date.now()));
+    image.src = url.toString();
+  });
+};
+
 const handleEvent = (event: ReloadEvent): void => {
   switch (event.type) {
+    case 'asset':
+      reloadImage(event.path);
+      return;
     case 'update':
       if (event.path === currentPath) refresh();
       return;

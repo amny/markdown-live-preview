@@ -12,7 +12,7 @@ import {
   startServer,
   type RunningServer,
 } from '../../src/server/server.js';
-import { parseFragmentResponse, parseReloadEvent } from '../../src/events.js';
+import { parseFragmentResponse, parseReloadEvent, rootRelativePathOf } from '../../src/events.js';
 import { createRenderer, type Renderer } from '../../src/render/pipeline.js';
 import type { Logger } from '../../src/log.js';
 
@@ -97,6 +97,22 @@ describe('events', () => {
     expect(parseReloadEvent({ type: 'update' })).toBeUndefined();
     expect(parseReloadEvent({ type: 'unknown' })).toBeUndefined();
     expect(parseReloadEvent('tree')).toBeUndefined();
+  });
+
+  it('parses asset events', () => {
+    expect(parseReloadEvent({ type: 'asset', path: 'img/a.png' })).toEqual({ type: 'asset', path: 'img/a.png' });
+    expect(parseReloadEvent({ type: 'asset' })).toBeUndefined();
+  });
+
+  it.each([
+    ['img/a.png', 'http://localhost:3000/docs/guide.md', 'docs/img/a.png'],
+    ['../img/a%20b.png?t=1', 'http://localhost:3000/docs/guide.md', 'img/a b.png'],
+    ['/img/a.png', 'http://localhost:3000/docs/guide.md', 'img/a.png'],
+    ['http://localhost:3000/img/a.png', 'http://localhost:3000/', 'img/a.png'],
+    ['https://example.com/img/a.png', 'http://localhost:3000/', undefined],
+    ['/%E0%A4%A.png', 'http://localhost:3000/', undefined],
+  ])('maps %s on %s to the root-relative path %s', (href, base, expected) => {
+    expect(rootRelativePathOf(href, base)).toBe(expected);
   });
 
   it('parses fragment responses', () => {

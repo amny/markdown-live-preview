@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { inlineKatexFonts, katexFontNames, loadExportAssets } from '../../src/export/assets.js';
 import { buildSite, createExportRenderer, findOutputConflicts, validateOutDir } from '../../src/export/build.js';
 import { imageSourceToRelative } from '../../src/export/inline.js';
+import { dependentsOf, withReferences } from '../../src/export/sync.js';
 import { MAX_PAGE_BYTES, pageSizeWarning } from '../../src/export/writer.js';
 import type { Logger } from '../../src/log.js';
 
@@ -115,6 +116,13 @@ describe('buildSite', () => {
 
     expect(report.written).toEqual(['README.md', 'docs/escape.md', 'docs/guide.md']);
     expect(report.errors).toEqual([]);
+    expect(report.images).toEqual(
+      new Map([
+        ['README.md', ['img/dot.png', 'img/none.png']],
+        ['docs/escape.md', []],
+        ['docs/guide.md', ['img/dot.png']],
+      ]),
+    );
     expect(report.warnings).toEqual([
       'README.md: image could not be read (ENOENT): img/none.png',
       'docs/escape.md: image outside the root directory is not embedded: ../../outside.png',
@@ -175,5 +183,36 @@ describe('buildSite', () => {
     const result = await render('![dot](img/dot.png)', { filePath: 'a.md', linkMode: 'export' });
     expect(result.html).toContain('data:image/png;base64,');
     expect(result.warnings).toEqual([]);
+  });
+
+  it('records referenced images inside the root, including missing ones', async () => {
+    const render = createExportRenderer(root);
+    const result = await render(
+      '![a](img/dot.png) ![b](/img/dot.png) ![c](img/none.png) ![d](../outside.png) ![e](https://example.com/x.png)',
+      { filePath: 'a.md', linkMode: 'export' },
+    );
+    expect(result.images).toEqual(['img/dot.png', 'img/none.png']);
+  });
+});
+
+describe('image references', () => {
+  const references = new Map([
+    ['a.md', ['img/1.png', 'img/2.png']],
+    ['b.md', ['img/2.png']],
+    ['c.md', []],
+  ]);
+
+  it('finds pages that embed changed images', () => {
+    expect(dependentsOf(references, ['img/2.png'])).toEqual(['a.md', 'b.md']);
+    expect(dependentsOf(references, ['img/1.png', 'img/3.png'])).toEqual(['a.md']);
+    expect(dependentsOf(references, ['img/3.png'])).toEqual([]);
+  });
+
+  it('replaces and removes entries without mutating the original', () => {
+    const replaced = withReferences(references, 'b.md', ['img/3.png']);
+    expect(dependentsOf(replaced, ['img/3.png'])).toEqual(['b.md']);
+    expect(dependentsOf(references, ['img/3.png'])).toEqual([]);
+    expect(withReferences(references, 'a.md', undefined).has('a.md')).toBe(false);
+    expect(references.has('a.md')).toBe(true);
   });
 });

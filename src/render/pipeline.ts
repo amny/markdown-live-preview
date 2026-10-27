@@ -27,6 +27,8 @@ export type RenderResult = RenderMeta & {
   readonly html: string;
   /** プラグインが報告した警告（画像を埋め込めなかった等） */
   readonly warnings: readonly string[];
+  /** 埋め込み対象として参照したローカル画像（画像埋め込みプラグイン使用時のみ） */
+  readonly images: readonly string[];
 };
 
 export type Renderer = (source: string, options: RenderOptions) => Promise<RenderResult>;
@@ -112,6 +114,11 @@ export const createRenderer = (extraPlugins: PluggableList = []): Renderer => {
     });
     const meta = result.data.mdliveMeta;
     if (meta === undefined) throw new Error(`failed to render ${filePath}: metadata was not collected`);
-    return { ...meta, html: String(result), warnings: result.messages.map((message) => message.reason) };
+    return {
+      ...meta,
+      html: String(result),
+      warnings: result.messages.map((message) => message.reason),
+      images: result.data.mdliveImages ?? [],
+    };
   };
 };

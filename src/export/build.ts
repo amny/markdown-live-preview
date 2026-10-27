@@ -11,8 +11,12 @@ import { loadExportAssets } from './assets.js';
 import { rehypeInlineImages } from './inline.js';
 import { outputPathFor, pageSizeWarning, writeHtmlFile } from './writer.js';
 
+/** Markdown ファイル → 埋め込みのため参照しているローカル画像 */
+export type ImageReferences = ReadonlyMap<string, readonly string[]>;
+
 export type BuildReport = {
   readonly written: readonly string[];
+  readonly images: ImageReferences;
   readonly warnings: readonly string[];
   readonly errors: readonly string[];
 };
@@ -31,13 +35,19 @@ export const findOutputConflicts = (files: readonly string[]): readonly string[]
     .map((group) => `multiple files map to the same output ${toHtmlPath(group[0] ?? '')}: ${group.join(', ')}`);
 };
 
-/** Markdown を変換し、出力 HTML の本文と警告を返す */
+export type ExportedFile = {
+  readonly html: string;
+  readonly warnings: readonly string[];
+  readonly images: readonly string[];
+};
+
+/** Markdown を変換し、出力 HTML の本文と警告、参照した画像を返す */
 export const exportMarkdownFile = async (
   render: Renderer,
   root: string,
   filePath: string,
   assets: ExportAssets,
-): Promise<{ readonly html: string; readonly warnings: readonly string[] }> => {
+): Promise<ExportedFile> => {
   const absolute = path.join(root, ...filePath.split('/'));
   const source = await readFile(absolute, 'utf8').catch((cause: unknown) => {
     throw new Error(`failed to read ${absolute}`, { cause });
@@ -45,22 +55,26 @@ export const exportMarkdownFile = async (
   const result = await render(source, { filePath, linkMode: 'export' });
   const html = renderExportPage(result, assets);
   const sizeWarning = pageSizeWarning(html);
-  return { html, warnings: sizeWarning === undefined ? result.warnings : [...result.warnings, sizeWarning] };
+  return {
+    html,
+    warnings: sizeWarning === undefined ? result.warnings : [...result.warnings, sizeWarning],
+    images: result.images,
+  };
 };
 
 export const createExportRenderer = (root: string): Renderer => createRenderer([[rehypeInlineImages, { root }]]);
 
-/** 1 ファイルを変換して出力先に書き出し、警告を返す */
+/** 1 ファイルを変換して出力先に書き出し、警告と参照した画像を返す */
 export const exportFileToOutput = async (
   render: Renderer,
   root: string,
   outDir: string,
   filePath: string,
   assets: ExportAssets,
-): Promise<readonly string[]> => {
-  const { html, warnings } = await exportMarkdownFile(render, root, filePath, assets);
+): Promise<Omit<ExportedFile, 'html'>> => {
+  const { html, warnings, images } = await exportMarkdownFile(render, root, filePath, assets);
   await writeHtmlFile(outputPathFor(outDir, filePath), html);
-  return warnings;
+  return { warnings, images };
 };
 
 /**
@@ -80,7 +94,12 @@ export const writeIndexPage = async (
 };
 
 type FileOutcome =
-  | { readonly kind: 'written'; readonly filePath: string; readonly warnings: readonly string[] }
+  | {
+      readonly kind: 'written';
+      readonly filePath: string;
+      readonly warnings: readonly string[];
+      readonly images: readonly string[];
+    }
   | { readonly kind: 'failed'; readonly filePath: string; readonly error: string };
 
 export const buildSite = async (options: BuildOptions, log: Logger): Promise<BuildReport> => {
@@ -98,9 +117,9 @@ export const buildSite = async (options: BuildOptions, log: Logger): Promise<Bui
   const outcomes: FileOutcome[] = [];
   for (const filePath of files) {
     try {
-      const warnings = await exportFileToOutput(render, options.root, options.out, filePath, assets);
+      const { warnings, images } = await exportFileToOutput(render, options.root, options.out, filePath, assets);
       warnings.forEach((warning) => log.warn(`${filePath}: ${warning}`));
-      outcomes.push({ kind: 'written', filePath, warnings });
+      outcomes.push({ kind: 'written', filePath, warnings, images });
     } catch (error) {
       const message = `${filePath}: ${describeError(error)}`;
       log.error(message);
@@ -115,6 +134,9 @@ export const buildSite = async (options: BuildOptions, log: Logger): Promise<Bui
   const written = outcomes.flatMap((outcome) => (outcome.kind === 'written' ? [outcome.filePath] : []));
   return {
     written,
+    images: new Map(
+      outcomes.flatMap((outcome) => (outcome.kind === 'written' ? [[outcome.filePath, outcome.images] as const] : [])),
+    ),
     warnings: outcomes.flatMap((outcome) =>
       outcome.kind === 'written' ? outcome.warnings.map((warning) => `${outcome.filePath}: ${warning}`) : [],
     ),

@@ -96,6 +96,12 @@ describe('startServe', { timeout: 30_000 }, () => {
     );
 
     sse.events.length = 0;
+    sse.events.length = 0;
+    await writeFile(path.join(root, 'logo.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+    await vi.waitFor(() => expect(sse.events).toContainEqual({ type: 'asset', path: 'logo.svg' }), { timeout: 5000 });
+    expect(sse.events.filter((event) => event.type === 'update' || event.type === 'tree')).toEqual([]);
+
+    sse.events.length = 0;
     await writeFile(css, '.v2 {}');
     await vi.waitFor(() => expect(sse.events).toContainEqual({ type: 'css' }), { timeout: 5000 });
     sse.close();
@@ -119,6 +125,24 @@ describe('startServe', { timeout: 30_000 }, () => {
 
     await unlink(path.join(root, 'new.md'));
     await vi.waitFor(async () => expect(await exists(path.join(out, 'new.html'))).toBe(false), { timeout: 5000 });
+
+    // 参照先の画像が後から置かれた場合も、差し替えられた場合も、そのページを書き出し直す
+    await writeFile(path.join(root, 'pic.md'), '![logo](logo.svg)');
+    await vi.waitFor(async () => expect(await exists(path.join(out, 'pic.html'))).toBe(true), { timeout: 5000 });
+    expect(await readFile(path.join(out, 'pic.html'), 'utf8')).toContain('src="logo.svg"');
+
+    const svg = (color: string): string => `<svg xmlns="http://www.w3.org/2000/svg"><rect fill="${color}"/></svg>`;
+    const dataUri = (color: string): string => `data:image/svg+xml;base64,${Buffer.from(svg(color)).toString('base64')}`;
+    await writeFile(path.join(root, 'logo.svg'), svg('red'));
+    await vi.waitFor(
+      async () => expect(await readFile(path.join(out, 'pic.html'), 'utf8')).toContain(dataUri('red')),
+      { timeout: 5000 },
+    );
+    await writeFile(path.join(root, 'logo.svg'), svg('blue'));
+    await vi.waitFor(
+      async () => expect(await readFile(path.join(out, 'pic.html'), 'utf8')).toContain(dataUri('blue')),
+      { timeout: 5000 },
+    );
 
     await writeFile(css, '.v2 {}');
     await vi.waitFor(async () => expect(await readFile(readmeHtml, 'utf8')).toContain('.v2 {}'), { timeout: 5000 });

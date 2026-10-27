@@ -10,5 +10,7 @@ declare module 'vfile' {
   interface DataMap {
     mdlive: { readonly linkMode: LinkMode };
     mdliveMeta: RenderMeta;
+    /** 埋め込み対象として参照されたローカル画像（ルートからの相対パス。存在しないものも含む） */
+    mdliveImages: readonly string[];
   }
 }

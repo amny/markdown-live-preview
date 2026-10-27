@@ -52,6 +52,9 @@ export const rehypeInlineImages = (options: InlineImagesOptions) => async (tree:
     if (node.tagName === 'img' && typeof node.properties['src'] === 'string') images.push(node);
   });
 
+  // 画像の差し替え時に書き出し直すページを特定するため、参照先を記録する（存在しない画像も含む）
+  const referenced = new Set<string>();
+
   await Promise.all(
     images.map(async (node) => {
       const src = String(node.properties['src']);
@@ -63,6 +66,7 @@ export const rehypeInlineImages = (options: InlineImagesOptions) => async (tree:
         file.message(`image outside the root directory is not embedded: ${src}`);
         return;
       }
+      referenced.add(relative);
       const mimeType = mimeTypeFor(absolute);
       if (mimeType === undefined) {
         file.message(`unsupported image type is not embedded: ${src}`);
@@ -76,4 +80,6 @@ export const rehypeInlineImages = (options: InlineImagesOptions) => async (tree:
       if (data !== undefined) node.properties['src'] = `data:${mimeType};base64,${data.toString('base64')}`;
     }),
   );
+
+  file.data.mdliveImages = [...referenced].sort();
 };

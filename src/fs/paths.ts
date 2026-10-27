@@ -4,6 +4,11 @@ const MARKDOWN_EXT = /\.(md|markdown)$/i;
 
 export const isMarkdownPath = (filePath: string): boolean => MARKDOWN_EXT.test(filePath);
 
+/** 出力 HTML に埋め込み、変更を監視する画像の拡張子 */
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|avif|svg)$/i;
+
+export const isImagePath = (filePath: string): boolean => IMAGE_EXT.test(filePath);
+
 /** `.md` / `.markdown` を `.html` に置き換える */
 export const toHtmlPath = (filePath: string): string => filePath.replace(MARKDOWN_EXT, '.html');
 

@@ -3,7 +3,8 @@ import { createOutputSync } from '../export/sync.js';
 import type { Logger } from '../log.js';
 import type { ServeOptions } from '../options.js';
 import { createRenderer, type Renderer } from '../render/pipeline.js';
-import { watchMarkdown, watchSingleFile, type FileChange, type Watcher } from '../watch/watcher.js';
+import { isImagePath, isMarkdownPath } from '../fs/paths.js';
+import { watchFiles, watchSingleFile, type FileChange, type Watcher } from '../watch/watcher.js';
 import { createReloadHub, type ReloadHub } from './reload-hub.js';
 import { startServerWithFallback, type RunningServer } from './server.js';
 
@@ -27,7 +28,15 @@ export const notifyChanges = (hub: ReloadHub, changes: readonly FileChange[]): v
   changes.forEach((change) => hub.broadcast({ type: 'update', path: change.path }));
 };
 
-const reportWatchError = (log: Logger) => (error: Error) => log.error(`file watcher: ${error.message}`);
+/** 監視で得た変更を Markdown と画像に振り分ける */
+export const splitChanges = (
+  changes: readonly FileChange[],
+): { readonly markdown: readonly FileChange[]; readonly images: readonly FileChange[] } => ({
+  markdown: changes.filter((change) => isMarkdownPath(change.path)),
+  images: changes.filter((change) => isImagePath(change.path)),
+});
+
+const reportWatchError =(log: Logger) => (error: Error) => log.error(`file watcher: ${error.message}`);
 
 export const startServe = async (
   options: ServeOptions,
@@ -71,13 +80,20 @@ export const startServe = async (
   output?.rebuildAll();
 
   const watchers: readonly Watcher[] = [
-    watchMarkdown(
+    watchFiles(
       options.root,
-      { excludeDirs, ...watchOptions },
+      { isTarget: (target) => isMarkdownPath(target) || isImagePath(target), excludeDirs, ...watchOptions },
       (changes) => {
         changes.forEach((change) => log.info(`${change.kind}: ${change.path}`));
-        notifyChanges(hub, changes);
-        output?.apply(changes);
+        const { markdown, images } = splitChanges(changes);
+        if (markdown.length > 0) {
+          notifyChanges(hub, markdown);
+          output?.apply(markdown);
+        }
+        if (images.length > 0) {
+          images.forEach((change) => hub.broadcast({ type: 'asset', path: change.path }));
+          output?.applyImages(images);
+        }
       },
       reportWatchError(log),
     ),
