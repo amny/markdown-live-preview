@@ -1,6 +1,6 @@
 {
   "name": "md-live-preview",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Live-reloading Markdown preview server with self-contained HTML export",
   "type": "module",
   "bin": {
