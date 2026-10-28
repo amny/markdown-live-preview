@@ -14,6 +14,7 @@ import remarkRehype from 'remark-rehype';
 import { unified, type PluggableList } from 'unified';
 import { visit } from 'unist-util-visit';
 import { VFile } from 'vfile';
+import { rehypeAlerts } from './alerts.js';
 import { remarkDirectives, sanitizeSchema } from './directives.js';
 import { DEFAULT_FRONT_MATTER, frontMatterHandlers, remarkFrontMatter, type FrontMatterMode } from './front-matter.js';
 import { rehypeLinks, type LinkMode } from './links.js';
@@ -105,6 +106,7 @@ export const createRenderer = (
     // ユーザー入力由来の HTML はここで GitHub 準拠のスキーマ（div の class のみ追加許可）でサニタイズする。
     // 以降のプラグインはツール自身が生成する信頼済みの出力のみを追加する
     .use(rehypeSanitize, sanitizeSchema)
+    .use(rehypeAlerts)
     .use(rehypeMermaid)
     .use(rehypeKatex)
     .use(rehypeSlug)

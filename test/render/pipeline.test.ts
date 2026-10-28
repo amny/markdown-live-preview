@@ -36,6 +36,50 @@ describe('createRenderer', () => {
     });
   });
 
+  describe('alerts', () => {
+    it.each([
+      ['NOTE', 'note', 'Note', 'octicon-info'],
+      ['TIP', 'tip', 'Tip', 'octicon-light-bulb'],
+      ['IMPORTANT', 'important', 'Important', 'octicon-report'],
+      ['WARNING', 'warning', 'Warning', 'octicon-alert'],
+      ['caution', 'caution', 'Caution', 'octicon-stop'],
+    ])('renders [!%s] as a GitHub alert', async (marker, type, title, icon) => {
+      const { html } = await render(`> [!${marker}]\n> Body **text**.`, serve);
+      expect(html).toContain(`<div class="markdown-alert markdown-alert-${type}">`);
+      expect(html).toContain(`<p class="markdown-alert-title"><svg class="octicon ${icon} mr-2" viewBox="0 0 16 16"`);
+      expect(html).toContain(`</svg>${title}</p>`);
+      expect(html).toContain('<p>Body <strong>text</strong>.</p>');
+      expect(html).not.toContain('<blockquote>');
+      expect(html).not.toContain('[!');
+    });
+
+    it('keeps paragraphs that follow the marker line', async () => {
+      const { html } = await render('> [!TIP]\n>\n> First.\n>\n> - item', serve);
+      expect(html).toContain('<div class="markdown-alert markdown-alert-tip">');
+      expect(html).toContain('<p>First.</p>');
+      expect(html).toContain('<li>item</li>');
+    });
+
+    it.each([
+      ['an unknown type', '> [!OTHER]\n> Body'],
+      ['text after the marker', '> [!NOTE] Body'],
+      ['inline content after the marker', '> [!NOTE] **Body**'],
+      ['no body', '> [!NOTE]'],
+      ['a nested blockquote', '> > [!NOTE]\n> > Body'],
+      ['a blockquote in a list', '- > [!NOTE]\n  > Body'],
+    ])('keeps a plain blockquote for %s', async (_label, source) => {
+      const { html } = await render(source, serve);
+      expect(html).toContain('<blockquote>');
+      expect(html).not.toContain('markdown-alert');
+    });
+
+    it('does not let raw HTML inject alert icons', async () => {
+      const { html } = await render('<p class="markdown-alert-title"><svg><path d="M0"/></svg></p>', serve);
+      expect(html).not.toContain('<svg');
+      expect(html).not.toContain('markdown-alert-title');
+    });
+  });
+
   it('adds GitHub-compatible heading ids', async () => {
     const { html } = await render('# Hello World\n\n## Hello World\n\n## 日本語 見出し', serve);
     expect(html).toContain('<h1 id="hello-world">');

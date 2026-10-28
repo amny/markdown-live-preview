@@ -41,6 +41,7 @@ src/
     index-page.ts     # ファイル一覧ページ
     links.ts          # 相対リンク解決・.md → .html 書き換え（rehype プラグイン）
     directives.ts     # :::name → <div class="name"> 変換とサニタイズスキーマ
+    alerts.ts         # GitHub のアラート（> [!NOTE] など）→ アイコン付きの div（サニタイズ後に実行）
     front-matter.ts   # フロントマター（YAML）の解析と表への変換
     vfile-data.ts     # VFile.data の型拡張（プラグイン間で渡す情報）
   fs/
