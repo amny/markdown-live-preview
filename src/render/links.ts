@@ -60,11 +60,15 @@ const safeDecode = (value: string): string => {
 /**
  * サニタイズで接頭辞が付いた id に合わせて、ページ内リンク（`#foo`）を書き換える。
  * GitHub はクライアント側の JS で解決しているが、出力 HTML 単体でも動くよう静的に解決する。
+ * 非 ASCII の脚注ラベルのように id 自体がパーセントエンコードされている場合があるため、
+ * エンコードされたままの形と戻した形の両方で照合する（ブラウザもフラグメントを両方の形で探す）。
  */
 export const resolveFragment = (href: string, ids: ReadonlySet<string>): string => {
   if (!href.startsWith('#') || href.length === 1) return href;
-  const id = safeDecode(href.slice(1));
-  return !ids.has(id) && ids.has(CLOBBER_PREFIX + id) ? `#${CLOBBER_PREFIX}${href.slice(1)}` : href;
+  const raw = href.slice(1);
+  const candidates = [raw, safeDecode(raw)];
+  if (candidates.some((id) => ids.has(id))) return href;
+  return candidates.some((id) => ids.has(CLOBBER_PREFIX + id)) ? `#${CLOBBER_PREFIX}${raw}` : href;
 };
 
 const rewriteAttribute = (node: Element, name: 'href' | 'src', rewrite: (url: string) => string): void => {

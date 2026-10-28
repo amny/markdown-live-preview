@@ -26,6 +26,14 @@ describe('createRenderer', () => {
       expect(html).toContain('href="#user-content-fnref-1"');
       expect(html).toContain('id="user-content-fnref-1"');
     });
+
+    it('links footnotes with non-ASCII labels', async () => {
+      const { html } = await render('本文[^注1]\n\n[^注1]: 脚注', serve);
+      expect(html).toContain('href="#user-content-fn-%E6%B3%A81"');
+      expect(html).toContain('id="user-content-fn-%E6%B3%A81"');
+      expect(html).toContain('href="#user-content-fnref-%E6%B3%A81"');
+      expect(html).toContain('id="user-content-fnref-%E6%B3%A81"');
+    });
   });
 
   it('adds GitHub-compatible heading ids', async () => {

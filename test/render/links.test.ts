@@ -39,6 +39,15 @@ describe('resolveFragment', () => {
     expect(resolveFragment('#fn-1', ids)).toBe('#user-content-fn-1');
   });
 
+  it('matches percent-encoded ids such as non-ASCII footnote labels', () => {
+    const encoded = new Set(['user-content-fn-%E6%B3%A81', 'user-content-%E8%A6%8B']);
+    expect(resolveFragment('#fn-%E6%B3%A81', encoded)).toBe('#user-content-fn-%E6%B3%A81');
+    // id がデコード済みでもエンコード済みでも同じ結果になる
+    expect(resolveFragment('#fn-%E6%B3%A81', new Set(['user-content-fn-注1']))).toBe('#user-content-fn-%E6%B3%A81');
+    expect(resolveFragment('#%E8%A6%8B', encoded)).toBe('#user-content-%E8%A6%8B');
+    expect(resolveFragment('#fn-%E6%B3%A81', new Set(['fn-%E6%B3%A81']))).toBe('#fn-%E6%B3%A81');
+  });
+
   it('keeps fragments that already match an id', () => {
     expect(resolveFragment('#heading', ids)).toBe('#heading');
     expect(resolveFragment('#both', ids)).toBe('#both');
