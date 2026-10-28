@@ -4,6 +4,8 @@ export type RenderMeta = {
   readonly title: string;
   readonly hasMath: boolean;
   readonly hasMermaid: boolean;
+  /** 本文に画像（<img>）があるか */
+  readonly hasImage: boolean;
 };
 
 declare module 'vfile' {

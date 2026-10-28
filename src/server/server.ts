@@ -152,7 +152,7 @@ const routeMarkdownPage = async (ctx: ServerContext, filePath: string, absolute:
     const message = `${filePath}: ${describeError(error)}`;
     ctx.log.error(message);
     // エラー表示のページを返し、修正後のライブ更新で復帰できるようにする
-    const body = { title: path.posix.basename(filePath), html: '', hasMath: false, hasMermaid: false };
+    const body = { title: path.posix.basename(filePath), html: '', hasMath: false, hasMermaid: false, hasImage: false };
     return htmlReply(500, renderServePage({ ...body, filePath, hasCustomCss: ctx.customCss !== undefined, theme: ctx.theme, defaultCss: ctx.defaultCss, error: message }));
   }
 };

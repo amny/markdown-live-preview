@@ -56,6 +56,7 @@ export const renderIndexBody = (rootName: string, files: readonly string[], mode
   title: rootName,
   hasMath: false,
   hasMermaid: false,
+  hasImage: false,
   html: [
     `<h1>${escapeHtml(rootName)}</h1>`,
     files.length === 0 ? '<p>No Markdown files found.</p>' : renderTree(buildTree(files), mode),

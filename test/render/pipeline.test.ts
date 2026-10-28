@@ -75,6 +75,12 @@ describe('createRenderer', () => {
     expect(result.html).toContain('<span class="katex-display">');
   });
 
+  it('reports whether the page has images', async () => {
+    expect((await render('![a](a.png)', serve)).hasImage).toBe(true);
+    expect((await render('<img src="a.png" alt="">', serve)).hasImage).toBe(true);
+    expect((await render('no image', serve)).hasImage).toBe(false);
+  });
+
   it('turns mermaid code blocks into mermaid containers without highlighting', async () => {
     const result = await render('```mermaid\ngraph TD; A-->B\n```', serve);
     expect(result.hasMermaid).toBe(true);

@@ -1,3 +1,4 @@
+import { viewerScript } from '../client/viewer.js';
 import type { RenderMeta } from './vfile-data.js';
 
 /** 配色。`auto` は OS のライト／ダーク設定（prefers-color-scheme）に追従する */
@@ -165,6 +166,7 @@ export const renderServePage = (input: ServePageInput): string =>
       ...(input.hasCustomCss ? [`<link rel="stylesheet" href="${SERVE_PATHS.customCss}" data-mdlive-custom-css>`] : []),
       `<script defer src="${SERVE_PATHS.mermaidJs}"></script>`,
       inlineScript(mermaidBootstrap(input.theme)),
+      inlineScript(viewerScript()),
       `<script type="module" src="${SERVE_PATHS.client}"></script>`,
     ],
     ` data-mdlive-path="${escapeHtml(input.filePath)}"`,
@@ -184,6 +186,7 @@ export const renderExportPage = (body: PageBody, assets: ExportAssets): string =
       inlineStyle(baseCss(assets.theme, assets.githubCss !== undefined)),
       ...(assets.customCss === undefined ? [] : [inlineStyle(assets.customCss)]),
       ...(body.hasMermaid ? [inlineScript(assets.mermaidJs), inlineScript(mermaidBootstrap(assets.theme))] : []),
+      ...(body.hasImage || body.hasMermaid ? [inlineScript(viewerScript())] : []),
     ],
     '',
     body.html,

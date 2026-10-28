@@ -69,6 +69,7 @@ const rehypeCollectMeta = () => (tree: Root, file: VFile): void => {
   let title: string | undefined;
   let hasMath = false;
   let hasMermaid = false;
+  let hasImage = false;
 
   visit(tree, 'element', (node: Element) => {
     if (title === undefined && node.tagName === 'h1') {
@@ -77,9 +78,10 @@ const rehypeCollectMeta = () => (tree: Root, file: VFile): void => {
     }
     if (hasClass(node, 'katex')) hasMath = true;
     if (node.tagName === 'pre' && hasClass(node, 'mermaid')) hasMermaid = true;
+    if (node.tagName === 'img') hasImage = true;
   });
 
-  file.data.mdliveMeta = { title: title ?? titleFromPath(file.path), hasMath, hasMermaid };
+  file.data.mdliveMeta = { title: title ?? titleFromPath(file.path), hasMath, hasMermaid, hasImage };
 };
 
 /**

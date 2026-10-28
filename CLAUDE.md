@@ -59,6 +59,8 @@ src/
     inline.ts         # 画像を data URI 化する rehype プラグイン
     assets.ts         # CSS・KaTeX フォント・Mermaid を文字列として読み込みキャッシュ
   client/live.ts      # ブラウザ側スクリプト（本文差し替え・Mermaid 再描画・CSS 再読み込み）。tsup で dist/client.js に別途ビルド
+  client/viewer.ts    # 画像・図のビューア。関数を文字列化して serve 用・出力用ページにインライン埋め込み
+  client/zoom.ts      # ビューアの倍率・位置の計算（純粋関数。viewer.ts と同じく文字列化して埋め込む）
 ```
 
 ## 設計上の約束事
@@ -69,5 +71,6 @@ src/
 - ファイルパスは必ず `fs/paths.ts` を通して解決し、ルートディレクトリ外へのアクセスを防ぐ。
 - GitHub スタイル・KaTeX・Mermaid・client.js などの同梱アセットは `assets/source.ts` を通して読む（パッケージのパスを直接解決しない。SEA で動かなくなるため）。
 - `node:` 接頭辞は tsup で消さない（`removeNodeProtocol: false`。`node:sea` は接頭辞なしでは読み込めない）。
+- `client/viewer.ts` の `installViewer` と `client/zoom.ts` の関数は `String(fn)` でページに埋め込むため、引数以外のモジュール内の値（import・定数・他の関数）を参照しない。
 - 出力 HTML は外部参照を持たない単一ファイル完結形式を維持する（外部 URL 画像を除く）。
 - コード・コミットメッセージ・ログ出力は英語、ドキュメントとコメントは日本語でよい。

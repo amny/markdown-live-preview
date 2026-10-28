@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderIndexBody } from '../../src/render/index-page.js';
+import { VIEWER_ID } from '../../src/client/viewer.js';
 import {
   baseCss,
   escapeRawText,
@@ -10,7 +11,7 @@ import {
   type PageBody,
 } from '../../src/render/page.js';
 
-const body: PageBody = { title: 'A <b> & "c"', html: '<p>hi</p>', hasMath: false, hasMermaid: false };
+const body: PageBody = { title: 'A <b> & "c"', html: '<p>hi</p>', hasMath: false, hasMermaid: false, hasImage: false };
 const assets: ExportAssets = {
   theme: 'auto',
   githubCss: '.github{}',
@@ -36,6 +37,8 @@ describe('renderServePage', () => {
     expect(html).toContain(`src="${SERVE_PATHS.client}"`);
     expect(html).not.toContain(SERVE_PATHS.customCss);
     expect(html).toContain('<article class="markdown-body"><p>hi</p></article>');
+    // ライブ更新で画像や図が後から増えても使えるよう、常に読み込む
+    expect(html).toContain(VIEWER_ID);
   });
 
   it('links custom CSS after the default styles', () => {
@@ -58,6 +61,12 @@ describe('renderExportPage', () => {
     expect(html).toContain('<style>.katex{}</style>');
     expect(html).toContain('<script>window.mermaid={}</script>');
     expect(html).toContain('__mdliveRenderMermaid');
+  });
+
+  it('inlines the image viewer only for pages with images or diagrams', () => {
+    expect(renderExportPage(body, assets)).not.toContain(VIEWER_ID);
+    expect(renderExportPage({ ...body, hasImage: true }, assets)).toContain(VIEWER_ID);
+    expect(renderExportPage({ ...body, hasMermaid: true }, assets)).toContain(VIEWER_ID);
   });
 
   it('places custom CSS last and escapes closing tags', () => {
@@ -144,6 +153,7 @@ describe('renderIndexBody', () => {
       title: '<root>',
       hasMath: false,
       hasMermaid: false,
+      hasImage: false,
       html: '<h1>&lt;root&gt;</h1>\n<p>No Markdown files found.</p>',
     });
   });
