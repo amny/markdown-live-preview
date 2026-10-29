@@ -1,4 +1,5 @@
-// 画像・Mermaid 図のビューア。本文中の画像や図をクリックすると全画面で開き、拡大・縮小・ドラッグできる。
+// 画像・Mermaid 図のビューア。本文中の画像のクリック、または図の右上の拡大ボタンで全画面で開き、拡大・縮小・ドラッグできる。
+// 図は中の文字を選択できるよう、クリックでは開かない。
 // serve 用・出力用のどちらのページにも文字列化してインラインで埋め込む（viewerScript）。
 // そのため installViewer は引数で受け取るもの以外のモジュール内の値を参照しないこと。
 import { fitView, panBy, wheelFactor, zoomAt, type Size, type View } from './zoom.js';
@@ -16,7 +17,9 @@ export const VIEWER_ID = 'mdlive-viewer';
 export const installViewer = (deps: ViewerDeps, viewerId: string): void => {
   if (document.getElementById(`${viewerId}-style`) !== null) return;
 
-  const TARGET = 'article.markdown-body img, article.markdown-body pre.mermaid svg';
+  const IMAGE = 'article.markdown-body img';
+  const DIAGRAM = 'article.markdown-body pre.mermaid';
+  const OPEN_BUTTON = `${viewerId}-open`;
   const BUTTON_STEP = 1.25;
   // これ以上動いたらクリックではなくドラッグとみなす（px）
   const CLICK_TOLERANCE = 4;
@@ -24,7 +27,12 @@ export const installViewer = (deps: ViewerDeps, viewerId: string): void => {
   const style = document.createElement('style');
   style.id = `${viewerId}-style`;
   style.textContent = `
-article.markdown-body img:not(a img), article.markdown-body pre.mermaid svg { cursor: zoom-in; }
+article.markdown-body img:not(a img) { cursor: zoom-in; }
+article.markdown-body pre.mermaid { position: relative; }
+.${OPEN_BUTTON} { position: absolute; top: 8px; right: 8px; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 1px solid rgba(127, 127, 127, 0.4); border-radius: 6px; background: Canvas; color: CanvasText; cursor: pointer; opacity: 0; transition: opacity 0.15s; user-select: none; -webkit-user-select: none; }
+.${OPEN_BUTTON} svg { width: 16px; height: 16px; fill: currentColor; }
+pre.mermaid:hover > .${OPEN_BUTTON}, .${OPEN_BUTTON}:focus-visible { opacity: 1; }
+@media (hover: none) { .${OPEN_BUTTON} { opacity: 1; } }
 #${viewerId} { position: fixed; inset: 0; z-index: 2147483000; overflow: hidden; background: rgba(0, 0, 0, 0.85); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
 #${viewerId}[hidden] { display: none; }
 #${viewerId}.dragging { cursor: grabbing; }
@@ -145,15 +153,62 @@ article.markdown-body img:not(a img), article.markdown-body pre.mermaid svg { cu
     overlay.focus();
   };
 
+  // 押した位置。離すまでに動いていれば（文字選択のドラッグなど）クリックとして扱わない
+  let pressed: { readonly x: number; readonly y: number } | undefined;
+  document.addEventListener('pointerdown', (event) => {
+    pressed = { x: event.clientX, y: event.clientY };
+  });
+  const isDragEnd = (event: MouseEvent): boolean =>
+    pressed !== undefined && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > CLICK_TOLERANCE;
+
   // 本文はライブ更新で差し替わるため、document でまとめて受ける
   document.addEventListener('click', (event) => {
     if (!(event.target instanceof Element) || overlay.contains(event.target)) return;
-    const target = event.target.closest(TARGET);
-    if (target === null || target.closest('a') !== null) return;
-    if (target instanceof HTMLImageElement && !target.complete) return;
+    const button = event.target.closest(`.${OPEN_BUTTON}`);
+    const svg = button?.parentElement?.querySelector(':scope > svg');
+    if (svg instanceof SVGSVGElement) {
+      event.preventDefault();
+      open(svg);
+      return;
+    }
+    const image = event.target.closest(IMAGE);
+    if (!(image instanceof HTMLImageElement) || image.closest('a') !== null || !image.complete) return;
+    if (isDragEnd(event) || window.getSelection()?.isCollapsed === false) return;
     event.preventDefault();
-    open(target);
+    open(image);
   });
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  // Octicons の screen-full（16px）
+  const OPEN_ICON =
+    'M1.75 10a.75.75 0 0 1 .75.75v2.5c0 .138.112.25.25.25h2.5a.75.75 0 0 1 0 1.5h-2.5A1.75 1.75 0 0 1 1 13.25v-2.5a.75.75 0 0 1 .75-.75Zm12.5 0a.75.75 0 0 1 .75.75v2.5A1.75 1.75 0 0 1 13.25 15h-2.5a.75.75 0 0 1 0-1.5h2.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 .75-.75ZM2.75 2.5a.25.25 0 0 0-.25.25v2.5a.75.75 0 0 1-1.5 0v-2.5C1 1.784 1.784 1 2.75 1h2.5a.75.75 0 0 1 0 1.5ZM10 1.75a.75.75 0 0 1 .75-.75h2.5c.966 0 1.75.784 1.75 1.75v2.5a.75.75 0 0 1-1.5 0v-2.5a.25.25 0 0 0-.25-.25h-2.5a.75.75 0 0 1-.75-.75Z';
+
+  const openButton = (): HTMLButtonElement => {
+    const element = document.createElement('button');
+    element.type = 'button';
+    element.className = OPEN_BUTTON;
+    element.title = 'Open in viewer';
+    element.setAttribute('aria-label', 'Open diagram in viewer');
+    const icon = document.createElementNS(SVG_NS, 'svg');
+    icon.setAttribute('viewBox', '0 0 16 16');
+    icon.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', OPEN_ICON);
+    icon.append(path);
+    element.append(icon);
+    return element;
+  };
+
+  /** 描画済みでボタンのない図にボタンを付ける。図は描画・再描画のたびに中身が置き換わる */
+  const attachButtons = (): void => {
+    document.querySelectorAll(DIAGRAM).forEach((diagram) => {
+      if (diagram.querySelector(':scope > svg') === null || diagram.querySelector(`:scope > .${OPEN_BUTTON}`) !== null) return;
+      diagram.append(openButton());
+    });
+  };
+  // 変更はまとめて通知される。ボタンの追加による通知では、付け足すものがないため何もしない
+  new MutationObserver(attachButtons).observe(document.body, { childList: true, subtree: true });
+  attachButtons();
 
   // ドラッグとピンチ。押下中のポインタの位置を保持する
   const pointers = new Map<number, { readonly x: number; readonly y: number }>();

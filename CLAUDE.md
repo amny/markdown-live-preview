@@ -60,7 +60,7 @@ src/
     inline.ts         # 画像を data URI 化する rehype プラグイン
     assets.ts         # CSS・KaTeX フォント・Mermaid を文字列として読み込みキャッシュ
   client/live.ts      # ブラウザ側スクリプト（本文差し替え・Mermaid 再描画・CSS 再読み込み）。tsup で dist/client.js に別途ビルド
-  client/viewer.ts    # 画像・図のビューア。関数を文字列化して serve 用・出力用ページにインライン埋め込み
+  client/viewer.ts    # 画像・図のビューア（画像はクリック、図は拡大ボタンで開く）。関数を文字列化して serve 用・出力用ページにインライン埋め込み
   client/zoom.ts      # ビューアの倍率・位置の計算（純粋関数。viewer.ts と同じく文字列化して埋め込む）
 ```
 
