@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { validateIncludePattern } from './fs/target.js';
 import {
   DEFAULT_FRONT_MATTER,
   FRONT_MATTER_MODES,
@@ -21,6 +22,8 @@ export type ServeOptions = {
   readonly theme: Theme;
   readonly defaultCss: boolean;
   readonly frontMatter: FrontMatterMode;
+  /** 対象の Markdown を絞り込む glob（ルートからの相対）。空ならすべて対象 */
+  readonly include: readonly string[];
 };
 
 export type BuildOptions = {
@@ -31,6 +34,8 @@ export type BuildOptions = {
   readonly theme: Theme;
   readonly defaultCss: boolean;
   readonly frontMatter: FrontMatterMode;
+  /** 対象の Markdown を絞り込む glob（ルートからの相対）。空ならすべて対象 */
+  readonly include: readonly string[];
 };
 
 export const DEFAULT_PORT = 3000;
@@ -64,6 +69,17 @@ const parseFrontMatterMode = (value: unknown): Result<FrontMatterMode> => {
     : fail(`invalid --front-matter "${String(value)}": expected one of ${FRONT_MATTER_MODES.join(', ')}`);
 };
 
+const parseInclude = (value: unknown): Result<readonly string[]> => {
+  if (value === undefined) return ok([]);
+  if (!Array.isArray(value)) return fail('invalid --include: expected a list of glob patterns');
+  const patterns = value.map(String);
+  const invalid = patterns.flatMap((pattern) => {
+    const reason = validateIncludePattern(pattern);
+    return reason === undefined ? [] : [`invalid --include "${pattern}": ${reason}`];
+  });
+  return invalid.length > 0 ? fail(invalid.join('\n')) : ok(patterns);
+};
+
 const optionalString = (raw: Readonly<Record<string, unknown>>, key: string): Result<string | undefined> => {
   const value = raw[key];
   if (value === undefined) return ok(undefined);
@@ -90,6 +106,8 @@ export const parseServeOptions = (dir: string | undefined, raw: unknown, cwd: st
   if (!theme.ok) return theme;
   const frontMatter = parseFrontMatterMode(raw['frontMatter']);
   if (!frontMatter.ok) return frontMatter;
+  const include = parseInclude(raw['include']);
+  if (!include.ok) return include;
 
   const outPath = resolveFrom(cwd, out.value);
   const cssPath = resolveFrom(cwd, css.value);
@@ -103,6 +121,7 @@ export const parseServeOptions = (dir: string | undefined, raw: unknown, cwd: st
     theme: theme.value,
     defaultCss: raw['defaultCss'] !== false,
     frontMatter: frontMatter.value,
+    include: include.value,
   });
 };
 
@@ -118,6 +137,8 @@ export const parseBuildOptions = (dir: string | undefined, raw: unknown, cwd: st
   if (!theme.ok) return theme;
   const frontMatter = parseFrontMatterMode(raw['frontMatter']);
   if (!frontMatter.ok) return frontMatter;
+  const include = parseInclude(raw['include']);
+  if (!include.ok) return include;
 
   const cssPath = resolveFrom(cwd, css.value);
   return ok({
@@ -128,5 +149,6 @@ export const parseBuildOptions = (dir: string | undefined, raw: unknown, cwd: st
     theme: theme.value,
     defaultCss: raw['defaultCss'] !== false,
     frontMatter: frontMatter.value,
+    include: include.value,
   });
 };

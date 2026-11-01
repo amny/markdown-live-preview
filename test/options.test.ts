@@ -9,7 +9,7 @@ describe('parseServeOptions', () => {
   it('applies defaults', () => {
     expect(parseServeOptions(undefined, {}, cwd)).toEqual({
       ok: true,
-      value: { root: cwd, port: DEFAULT_PORT, host: DEFAULT_HOST, open: true, theme: DEFAULT_THEME, defaultCss: true, frontMatter: DEFAULT_FRONT_MATTER },
+      value: { root: cwd, port: DEFAULT_PORT, host: DEFAULT_HOST, open: true, theme: DEFAULT_THEME, defaultCss: true, frontMatter: DEFAULT_FRONT_MATTER, include: [] },
     });
   });
 
@@ -27,6 +27,7 @@ describe('parseServeOptions', () => {
         theme: 'dark',
         defaultCss: false,
         frontMatter: 'hide',
+        include: [],
       },
     });
   });
@@ -55,6 +56,25 @@ describe('parseServeOptions', () => {
   });
 });
 
+describe('--include', () => {
+  it('keeps the patterns for serve and build', () => {
+    const include = ['docs', 'packages/*/docs'];
+    const serve = parseServeOptions(undefined, { include }, cwd);
+    expect(serve.ok && serve.value.include).toEqual(include);
+    const build = parseBuildOptions(undefined, { out: 'dist', include }, cwd);
+    expect(build.ok && build.value.include).toEqual(include);
+  });
+
+  it('reports every invalid pattern', () => {
+    const result = parseServeOptions(undefined, { include: ['docs', '../a', '/b'] }, cwd);
+    expect(result).toEqual({
+      ok: false,
+      error: expect.stringMatching(/invalid --include "\.\.\/a".*\n.*invalid --include "\/b"/),
+    });
+    expect(parseBuildOptions(undefined, { out: 'dist', include: 'docs' }, cwd).ok).toBe(false);
+  });
+});
+
 describe('parseBuildOptions', () => {
   it('requires --out', () => {
     expect(parseBuildOptions(undefined, {}, cwd)).toEqual({
@@ -66,7 +86,7 @@ describe('parseBuildOptions', () => {
   it('parses options', () => {
     expect(parseBuildOptions('docs', { out: 'dist', strict: true, theme: 'light', frontMatter: 'hide' }, cwd)).toEqual({
       ok: true,
-      value: { root: path.join(cwd, 'docs'), out: path.join(cwd, 'dist'), strict: true, theme: 'light', defaultCss: true, frontMatter: 'hide' },
+      value: { root: path.join(cwd, 'docs'), out: path.join(cwd, 'dist'), strict: true, theme: 'light', defaultCss: true, frontMatter: 'hide', include: [] },
     });
     expect(parseBuildOptions(undefined, { out: 'dist', theme: 'x' }, cwd).ok).toBe(false);
   });

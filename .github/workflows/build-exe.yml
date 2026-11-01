@@ -49,6 +49,17 @@ jobs:
             if (-not $html.Contains($expected)) { throw "build output does not contain $expected" }
           }
 
+      - name: Check --include
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force smoke\docs | Out-Null
+          Set-Content -Encoding utf8 smoke\docs\in.md "# In"
+          & dist-sea\mdlive.exe build smoke --out include-out --include 'docs'
+          if ($LASTEXITCODE -ne 0) { throw "mdlive.exe build --include failed" }
+          if (-not (Test-Path include-out\docs\in.html)) { throw "included file was not written" }
+          $list = Get-Content -Raw include-out\index.html
+          if ($list.Contains('<h1 id="smoke">')) { throw "excluded smoke\index.md was written" }
+
       - name: Check serve
         shell: pwsh
         run: |

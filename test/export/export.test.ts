@@ -126,8 +126,25 @@ describe('buildSite', () => {
     await rm(work, { recursive: true, force: true });
   });
 
+  it('exports only the included files but still embeds images outside of them', async () => {
+    const report = await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: ['docs'] }, silentLogger);
+    expect(report.written).toEqual(['docs/escape.md', 'docs/guide.md']);
+    expect(report.warnings.some((warning) => warning.startsWith('no Markdown files matched'))).toBe(false);
+    expect(await readFile(path.join(out, 'docs/guide.html'), 'utf8')).toContain('data:image/png;base64,');
+    await expect(readFile(path.join(out, 'README.html'), 'utf8')).rejects.toThrow();
+    const index = await readFile(path.join(out, 'index.html'), 'utf8');
+    expect(index).toContain('guide.html');
+    expect(index).not.toContain('README.html');
+  });
+
+  it('warns when no file matches --include', async () => {
+    const report = await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: ['missing'] }, silentLogger);
+    expect(report.written).toEqual([]);
+    expect(report.warnings).toEqual(['no Markdown files matched --include missing']);
+  });
+
   it('writes self-contained HTML files and a file list', async () => {
-    const report = await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger);
+    const report = await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: [] }, silentLogger);
 
     expect(report.written).toEqual(['README.md', 'docs/escape.md', 'docs/guide.md']);
     expect(report.errors).toEqual([]);
@@ -161,21 +178,21 @@ describe('buildSite', () => {
   });
 
   it('does not scan its own output directory on rebuild', async () => {
-    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger);
+    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: [] }, silentLogger);
     await write('dist/stale.md', '# stale');
-    const report = await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger);
+    const report = await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: [] }, silentLogger);
     expect(report.written).not.toContain('dist/stale.md');
   });
 
   it('uses index.md as index.html instead of generating a file list', async () => {
     await write('index.md', '# Home');
-    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger);
+    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: [] }, silentLogger);
     expect(await readFile(path.join(out, 'index.html'), 'utf8')).toContain('<title>Home</title>');
   });
 
   it('continues after a file fails and reports the error', async () => {
     await mkdir(path.join(out, 'README.html'), { recursive: true });
-    const report = await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger);
+    const report = await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: [] }, silentLogger);
     expect(report.errors).toHaveLength(1);
     expect(report.errors[0]).toMatch(/^README\.md: failed to write /);
     expect((await stat(path.join(out, 'docs', 'guide.html'))).isFile()).toBe(true);
@@ -184,13 +201,13 @@ describe('buildSite', () => {
   it('inlines custom CSS after the GitHub style', async () => {
     const css = path.join(work, 'custom.css');
     await writeFile(css, '.markdown-body { color: rebeccapurple; }');
-    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table', css }, silentLogger);
+    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: [], css }, silentLogger);
     const readme = await readFile(path.join(out, 'README.html'), 'utf8');
     expect(readme).toContain('rebeccapurple');
   });
 
   it('rejects output directories containing the root', async () => {
-    await expect(buildSite({ root, out: root, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger)).rejects.toThrow(/must not be the root/);
+    await expect(buildSite({ root, out: root, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: [] }, silentLogger)).rejects.toThrow(/must not be the root/);
   });
 
   it('can be reused through createExportRenderer', async () => {
@@ -202,9 +219,9 @@ describe('buildSite', () => {
 
   it('applies the front matter mode to exported pages', async () => {
     await write('fm.md', '---\ntitle: Hello\n---\n\n# Body');
-    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'hide' }, silentLogger);
+    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'hide', include: [] }, silentLogger);
     expect(await readFile(path.join(out, 'fm.html'), 'utf8')).not.toContain('<table>');
-    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table' }, silentLogger);
+    await buildSite({ root, out, strict: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: [] }, silentLogger);
     expect(await readFile(path.join(out, 'fm.html'), 'utf8')).toContain('<th>title</th>');
   });
 

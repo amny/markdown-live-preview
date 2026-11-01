@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { isImagePath, isInside, isMarkdownPath, resolveInside, toHtmlPath } from '../../src/fs/paths.js';
 import { scanMarkdownFiles } from '../../src/fs/scan.js';
+import { createTargetMatcher } from '../../src/fs/target.js';
 
 describe('paths', () => {
   const root = path.resolve('/work/root');
@@ -52,6 +53,10 @@ describe('scanMarkdownFiles', () => {
 
   afterEach(async () => {
     await rm(root, { recursive: true, force: true });
+  });
+
+  it('keeps only target files and never includes ignored directories', async () => {
+    expect(await scanMarkdownFiles(root, { isTarget: createTargetMatcher(['docs', 'node_modules/**']) })).toEqual(['docs/c.md']);
   });
 
   it('lists Markdown files, skipping ignored and excluded directories and symlinks', async () => {

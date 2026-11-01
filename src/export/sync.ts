@@ -1,4 +1,5 @@
 import { scanMarkdownFiles } from '../fs/scan.js';
+import { createTargetMatcher } from '../fs/target.js';
 import { describeError, type Logger } from '../log.js';
 import type { FileChange } from '../watch/watcher.js';
 import type { FrontMatterMode } from '../render/front-matter.js';
@@ -14,6 +15,7 @@ export type OutputSyncOptions = {
   readonly theme: Theme;
   readonly defaultCss: boolean;
   readonly frontMatter: FrontMatterMode;
+  readonly include: readonly string[];
 };
 
 export type OutputSync = {
@@ -106,7 +108,10 @@ export const createOutputSync = (
         for (const change of changes) await syncFile(change, assets);
         // ファイルの追加・削除があった場合は一覧も書き直す
         if (changes.some((change) => change.kind !== 'change')) {
-          const files = await scanMarkdownFiles(options.root, { excludeDirs: [options.out] });
+          const files = await scanMarkdownFiles(options.root, {
+            excludeDirs: [options.out],
+            isTarget: createTargetMatcher(options.include),
+          });
           await writeIndexPage(options.root, options.out, files, assets);
         }
       }),

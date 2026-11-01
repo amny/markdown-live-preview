@@ -12,7 +12,7 @@ Markdown をリアルタイムに HTML 変換してブラウザでライブプ�
 - Node.js 22.18+ / TypeScript (strict) / ESM / pnpm
 - 変換: unified（remark-gfm, remark-math, remark-directive, remark-frontmatter + yaml, rehype-raw, rehype-sanitize, rehype-katex, rehype-slug, @shikijs/rehype）
 - サーバ: `node:http` + SSE（WebSocket は使わない）
-- 監視: chokidar v4（v5 以降は Node 22.22+ が必要なため据え置き） / ブラウザ起動: open / CLI: commander
+- 監視: chokidar v4（v5 以降は Node 22.22+ が必要なため据え置き） / ブラウザ起動: open / CLI: commander / glob: picomatch
 - ビルド: tsup / テスト: vitest / 単一実行ファイル: Node.js SEA + postject（`tsup.sea.config.ts`・`scripts/build-sea.ts`、Windows 版は `.github/workflows/build-exe.yml`）
 
 ## コマンド
@@ -47,6 +47,7 @@ src/
   fs/
     paths.ts          # ルート外参照を防ぐ安全なパス解決
     scan.ts           # 対象 Markdown ファイルの列挙
+    target.ts         # --include の glob の検証と対象判定（picomatch）
   watch/watcher.ts    # chokidar ラッパー（debounce・型付きイベント）
   server/
     server.ts         # ルーティング（/, /*.md, /__mdlive/*）

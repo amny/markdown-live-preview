@@ -69,6 +69,7 @@ node dist/cli.js [dir]
 | `--theme <mode>` | 配色。`auto`（OS の設定に追従、デフォルト）/ `light` / `dark` |
 | `--no-default-css` | デフォルトスタイル（GitHub スタイルとレイアウト）を使わない。`--css` と組み合わせて独自スタイルだけで表示する |
 | `--front-matter <mode>` | フロントマター（先頭の `---` で囲んだ YAML）の表示。`table`（表で表示、デフォルト）/ `hide`（非表示） |
+| `--include <glob>` | 対象の Markdown をルートからの相対 glob で絞り込む（複数指定可）。例: `docs`、`packages/*/docs` |
 
 Ctrl+C で終了する。
 
@@ -85,12 +86,26 @@ node dist/cli.js build [dir] --out <dir>
 | `--theme <mode>` | 配色。`auto`（OS の設定に追従、デフォルト）/ `light` / `dark` |
 | `--no-default-css` | デフォルトスタイル（GitHub スタイルとレイアウト）を使わない。`--css` と組み合わせて独自スタイルだけで表示する |
 | `--front-matter <mode>` | フロントマター（先頭の `---` で囲んだ YAML）の表示。`table`（表で表示、デフォルト）/ `hide`（非表示） |
+| `--include <glob>` | 対象の Markdown をルートからの相対 glob で絞り込む（複数指定可）。例: `docs`、`packages/*/docs` |
 | `--strict` | 参照画像の欠落などの警告をエラー扱いにし、終了コード 1 で終了する |
 
 - ディレクトリ構造を保って `<out>/<path>.html` に出力し、`.md` へのリンクは `.html` に書き換える
 - ファイル一覧の `index.html` を生成する（ルートに `index.md` がある場合はそれを使う）
 - 出力 HTML は 1 ファイルで配布できる。ただしページ間リンクはリンク先のファイルも必要
 - Mermaid を含むページは `mermaid.js` を埋め込むため約 6MB になる
+
+## 対象フォルダの絞り込み
+
+`--include` にルートからの相対 glob を渡すと、一致するフォルダの配下の Markdown だけを扱う。シェルに展開されないよう引用符で囲む。
+
+```bash
+mdlive --include "packages/*/docs" --include "guides"
+```
+
+- ファイル自身または親フォルダのいずれかが一致すれば対象になる（`docs` は `docs/` の配下すべて）
+- ファイル一覧、ライブ更新、HTML 出力は対象だけを扱い、対象外の Markdown の URL は 404 になる
+- 画像は絞り込まないので、対象外のフォルダの画像も参照できる
+- 対象外の Markdown へのリンクは書き換えないため、リンク切れになる
 
 ## 画像・図のビューア
 

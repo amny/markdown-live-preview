@@ -1,10 +1,12 @@
 import type { AssetSource } from '../assets/source.js';
-import { validateOutDir } from '../export/build.js';
+import { noMatchingFilesMessage, validateOutDir } from '../export/build.js';
 import { createOutputSync } from '../export/sync.js';
 import type { Logger } from '../log.js';
 import type { ServeOptions } from '../options.js';
 import { createRenderer, type Renderer } from '../render/pipeline.js';
-import { isImagePath, isMarkdownPath } from '../fs/paths.js';
+import { isImagePath, isMarkdownPath, toRelativePosix } from '../fs/paths.js';
+import { scanMarkdownFiles } from '../fs/scan.js';
+import { createTargetMatcher } from '../fs/target.js';
 import { watchFiles, watchSingleFile, type FileChange, type Watcher } from '../watch/watcher.js';
 import { createReloadHub, type ReloadHub } from './reload-hub.js';
 import { startServerWithFallback, type RunningServer } from './server.js';
@@ -52,6 +54,13 @@ export const startServe = async (
   const excludeDirs = options.out === undefined ? [] : [options.out];
   const watchOptions = tuning.debounceMs === undefined ? {} : { debounceMs: tuning.debounceMs };
 
+  const isTarget = createTargetMatcher(options.include);
+  // --out 指定時は書き出しの中で同じ警告を出す
+  if (options.include.length > 0 && options.out === undefined) {
+    const files = await scanMarkdownFiles(options.root, { excludeDirs, isTarget });
+    if (files.length === 0) log.warn(noMatchingFilesMessage(options.include));
+  }
+
   const render = createRenderer([], { frontMatter: options.frontMatter });
   warmUp(render, log);
   const hub = createReloadHub();
@@ -65,6 +74,7 @@ export const startServe = async (
       defaultCss: options.defaultCss,
       assets,
       excludeDirs,
+      isTarget,
       render,
       hub,
       log,
@@ -82,6 +92,7 @@ export const startServe = async (
             theme: options.theme,
             defaultCss: options.defaultCss,
             frontMatter: options.frontMatter,
+            include: options.include,
             ...(options.css === undefined ? {} : { css: options.css }),
           },
           log,
@@ -92,7 +103,12 @@ export const startServe = async (
   const watchers: readonly Watcher[] = [
     watchFiles(
       options.root,
-      { isTarget: (target) => isMarkdownPath(target) || isImagePath(target), excludeDirs, ...watchOptions },
+      {
+        // 画像は対象外のディレクトリのものも参照されるため絞り込まない
+        isTarget: (target) => (isMarkdownPath(target) ? isTarget(toRelativePosix(options.root, target)) : isImagePath(target)),
+        excludeDirs,
+        ...watchOptions,
+      },
       (changes) => {
         changes.forEach((change) => log.info(`${change.kind}: ${change.path}`));
         const { markdown, images } = splitChanges(changes);

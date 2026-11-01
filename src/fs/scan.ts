@@ -1,6 +1,7 @@
 import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { isInside, isMarkdownPath, toRelativePosix } from './paths.js';
+import type { TargetMatcher } from './target.js';
 
 /** 名前だけで常に除外するディレクトリ */
 export const IGNORED_DIR_NAMES: ReadonlySet<string> = new Set(['node_modules', '.git']);
@@ -8,6 +9,8 @@ export const IGNORED_DIR_NAMES: ReadonlySet<string> = new Set(['node_modules', '
 export type ScanOptions = {
   /** 除外するディレクトリの絶対パス（出力先など） */
   readonly excludeDirs?: readonly string[];
+  /** 対象の Markdown の判定。省略時はすべて対象 */
+  readonly isTarget?: TargetMatcher;
 };
 
 export const isExcludedDir = (dir: string, excludeDirs: readonly string[]): boolean =>
@@ -19,6 +22,7 @@ export const isExcludedDir = (dir: string, excludeDirs: readonly string[]): bool
  */
 export const scanMarkdownFiles = async (root: string, options: ScanOptions = {}): Promise<readonly string[]> => {
   const excludeDirs = options.excludeDirs ?? [];
+  const isTarget = options.isTarget ?? (() => true);
 
   const walk = async (dir: string): Promise<readonly string[]> => {
     const entries = await readdir(dir, { withFileTypes: true }).catch((cause: unknown) => {
@@ -28,7 +32,9 @@ export const scanMarkdownFiles = async (root: string, options: ScanOptions = {})
       entries.map(async (entry): Promise<readonly string[]> => {
         const fullPath = path.join(dir, entry.name);
         if (entry.isDirectory()) return isExcludedDir(fullPath, excludeDirs) ? [] : walk(fullPath);
-        return entry.isFile() && isMarkdownPath(entry.name) ? [toRelativePosix(root, fullPath)] : [];
+        if (!entry.isFile() || !isMarkdownPath(entry.name)) return [];
+        const relative = toRelativePosix(root, fullPath);
+        return isTarget(relative) ? [relative] : [];
       }),
     );
     return nested.flat();

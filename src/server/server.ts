@@ -4,8 +4,9 @@ import http, { type IncomingMessage, type Server, type ServerResponse } from 'no
 import path from 'node:path';
 import type { FragmentResponse } from '../events.js';
 import { CLIENT_ASSET, GITHUB_CSS_ASSETS, KATEX_CSS_ASSET, MERMAID_ASSET, type AssetSource } from '../assets/source.js';
-import { isInside, isMarkdownPath, resolveInside } from '../fs/paths.js';
+import { isInside, isMarkdownPath, resolveInside, toRelativePosix } from '../fs/paths.js';
 import { scanMarkdownFiles } from '../fs/scan.js';
+import type { TargetMatcher } from '../fs/target.js';
 import { describeError, type Logger } from '../log.js';
 import { renderIndexBody } from '../render/index-page.js';
 import { renderServePage, SERVE_PATHS, type PageBody, type Theme } from '../render/page.js';
@@ -24,6 +25,8 @@ export type ServerContext = {
   readonly assets: AssetSource;
   /** ファイル一覧から除外するディレクトリ（出力先など） */
   readonly excludeDirs: readonly string[];
+  /** 対象の Markdown の判定（--include） */
+  readonly isTarget: TargetMatcher;
   readonly render: Renderer;
   readonly hub: ReloadHub;
   readonly log: Logger;
@@ -137,8 +140,11 @@ const renderMarkdownBody = async (ctx: ServerContext, filePath: string, absolute
   return ctx.render(source, { filePath, linkMode: 'serve' });
 };
 
+/** URL の書き方に左右されないよう、解決後のパスで判定する */
+const isTargetFile = (ctx: ServerContext, absolute: string): boolean => ctx.isTarget(toRelativePosix(ctx.root, absolute));
+
 const renderIndex = async (ctx: ServerContext): Promise<PageBody> => {
-  const files = await scanMarkdownFiles(ctx.root, { excludeDirs: ctx.excludeDirs });
+  const files = await scanMarkdownFiles(ctx.root, { excludeDirs: ctx.excludeDirs, isTarget: ctx.isTarget });
   return renderIndexBody(path.basename(ctx.root), files, 'serve');
 };
 
@@ -163,7 +169,7 @@ const routeFragment = async (ctx: ServerContext, filePath: string): Promise<Repl
     return jsonReply(200, { ok: true, title: body.title, html: body.html });
   }
   const absolute = isMarkdownPath(filePath) ? await resolveRequestFile(ctx.root, filePath) : undefined;
-  if (absolute === undefined) return jsonReply(404, { ok: false, error: `${filePath}: file not found` });
+  if (absolute === undefined || !isTargetFile(ctx, absolute)) return jsonReply(404, { ok: false, error: `${filePath}: file not found` });
   try {
     const body = await renderMarkdownBody(ctx, filePath, absolute);
     return jsonReply(200, { ok: true, title: body.title, html: body.html });
@@ -211,7 +217,8 @@ const route = async (ctx: ServerContext, url: URL): Promise<Reply> => {
   const filePath = pathname.slice(1);
   const absolute = await resolveRequestFile(ctx.root, filePath);
   if (absolute === undefined) return NOT_FOUND;
-  return isMarkdownPath(filePath) ? routeMarkdownPage(ctx, filePath, absolute) : fileReply(absolute);
+  if (!isMarkdownPath(filePath)) return fileReply(absolute);
+  return isTargetFile(ctx, absolute) ? routeMarkdownPage(ctx, filePath, absolute) : NOT_FOUND;
 };
 
 const BASE_HEADERS = { 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' } as const;

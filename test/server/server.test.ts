@@ -158,6 +158,7 @@ describe('server', () => {
         defaultCss: true,
         assets: createPackageAssetSource(path.join(work, 'client.js')),
         excludeDirs: [],
+        isTarget: () => true,
         render,
         hub,
         log: silentLogger,

@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, unlink, writeFile } from 'node:fs/promises';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -64,7 +64,7 @@ describe('startServe', { timeout: 30_000 }, () => {
 
   const start = async (withOut: boolean): Promise<ServeHandle> => {
     const handle = await startServe(
-      { root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', defaultCss: true, frontMatter: 'table', css, ...(withOut ? { out } : {}) },
+      { root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: [], css, ...(withOut ? { out } : {}) },
       createPackageAssetSource(path.join(work, 'client.js')),
       silentLogger,
       { debounceMs: 20 },
@@ -149,9 +149,60 @@ describe('startServe', { timeout: 30_000 }, () => {
     await vi.waitFor(async () => expect(await readFile(readmeHtml, 'utf8')).toContain('.v2 {}'), { timeout: 5000 });
   });
 
+  it('limits pages and live updates to --include but not images', async () => {
+    await mkdir(path.join(root, 'docs'));
+    await writeFile(path.join(root, 'docs', 'in.md'), '# In');
+    await writeFile(path.join(root, 'pic.png'), 'v1');
+    serve = await startServe(
+      { root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: ['docs'] },
+      createPackageAssetSource(path.join(work, 'client.js')),
+      silentLogger,
+      { debounceMs: 20 },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const statusOf = async (target: string): Promise<number> => (await fetch(new URL(target, serve?.url))).status;
+
+    expect(await statusOf('/docs/in.md')).toBe(200);
+    expect(await statusOf('/README.md')).toBe(404);
+    // エンコードした区切りで対象のディレクトリを経由しても対象外のまま
+    expect(await statusOf('/docs%2F..%2FREADME.md')).toBe(404);
+    expect(await statusOf('/__mdlive/fragment?path=README.md')).toBe(404);
+    expect(await statusOf('/pic.png')).toBe(200);
+    const index = await (await fetch(serve.url)).text();
+    expect(index).toContain('docs/in.md');
+    expect(index).not.toContain('README.md');
+
+    const sse = await subscribe(serve.port);
+    await writeFile(path.join(root, 'README.md'), '# Changed');
+    await writeFile(path.join(root, 'pic.png'), 'v2');
+    await writeFile(path.join(root, 'docs', 'in.md'), '# Changed');
+    await vi.waitFor(
+      () =>
+        expect(sse.events).toEqual(
+          expect.arrayContaining([
+            { type: 'update', path: 'docs/in.md' },
+            { type: 'asset', path: 'pic.png' },
+          ]),
+        ),
+      { timeout: 5000 },
+    );
+    expect(sse.events).not.toContainEqual({ type: 'update', path: 'README.md' });
+    sse.close();
+  });
+
+  it('warns at startup when no file matches --include', async () => {
+    const warn = vi.fn();
+    serve = await startServe(
+      { root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: ['missing'] },
+      createPackageAssetSource(path.join(work, 'client.js')),
+      { ...silentLogger, warn },
+    );
+    expect(warn).toHaveBeenCalledWith('no Markdown files matched --include missing');
+  });
+
   it('rejects an output directory that contains the root', async () => {
     await expect(
-      startServe({ root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', defaultCss: true, frontMatter: 'table', out: root }, createPackageAssetSource(path.join(work, 'client.js')), silentLogger),
+      startServe({ root, port: 0, host: '127.0.0.1', open: false, theme: 'auto', defaultCss: true, frontMatter: 'table', include: [], out: root }, createPackageAssetSource(path.join(work, 'client.js')), silentLogger),
     ).rejects.toThrow(/must not be the root/);
   });
 });

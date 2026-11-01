@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { isInside, toHtmlPath } from '../fs/paths.js';
 import { scanMarkdownFiles } from '../fs/scan.js';
+import { createTargetMatcher } from '../fs/target.js';
 import { describeError, type Logger } from '../log.js';
 import type { BuildOptions } from '../options.js';
 import { DEFAULT_FRONT_MATTER, type FrontMatterMode } from '../render/front-matter.js';
@@ -104,11 +105,20 @@ type FileOutcome =
     }
   | { readonly kind: 'failed'; readonly filePath: string; readonly error: string };
 
+/** --include に一致するファイルがないときの警告 */
+export const noMatchingFilesMessage = (include: readonly string[]): string =>
+  `no Markdown files matched --include ${include.join(', ')}`;
+
 export const buildSite = async (options: BuildOptions, log: Logger): Promise<BuildReport> => {
   const outDirError = validateOutDir(options.root, options.out);
   if (outDirError !== undefined) throw new Error(outDirError);
 
-  const files = await scanMarkdownFiles(options.root, { excludeDirs: [options.out] });
+  const files = await scanMarkdownFiles(options.root, {
+    excludeDirs: [options.out],
+    isTarget: createTargetMatcher(options.include),
+  });
+  const noMatchWarnings = options.include.length > 0 && files.length === 0 ? [noMatchingFilesMessage(options.include)] : [];
+  noMatchWarnings.forEach((warning) => log.warn(warning));
   const conflicts = findOutputConflicts(files);
   if (conflicts.length > 0) throw new Error(conflicts.join('\n'));
 
@@ -139,9 +149,12 @@ export const buildSite = async (options: BuildOptions, log: Logger): Promise<Bui
     images: new Map(
       outcomes.flatMap((outcome) => (outcome.kind === 'written' ? [[outcome.filePath, outcome.images] as const] : [])),
     ),
-    warnings: outcomes.flatMap((outcome) =>
-      outcome.kind === 'written' ? outcome.warnings.map((warning) => `${outcome.filePath}: ${warning}`) : [],
-    ),
+    warnings: [
+      ...noMatchWarnings,
+      ...outcomes.flatMap((outcome) =>
+        outcome.kind === 'written' ? outcome.warnings.map((warning) => `${outcome.filePath}: ${warning}`) : [],
+      ),
+    ],
     errors: outcomes.flatMap((outcome) => (outcome.kind === 'failed' ? [outcome.error] : [])),
   };
 };

@@ -41,6 +41,7 @@ describe('startServerWithFallback', () => {
     defaultCss: true,
     assets: createPackageAssetSource('client.js'),
     excludeDirs: [],
+    isTarget: () => true,
     render: createRenderer(),
     hub: createReloadHub(),
     log,

@@ -82,6 +82,10 @@ const runBuild = async (options: BuildOptions): Promise<void> => {
   if (options.strict && report.warnings.length > 0) throw new Error('build failed: warnings are treated as errors (--strict)');
 };
 
+const collect = (value: string, previous: readonly string[]): readonly string[] => [...previous, value];
+
+const INCLUDE_DESCRIPTION = 'only target Markdown files matching this glob relative to <dir> (repeatable)';
+
 const createProgram = (cwd: string): Command => {
   const program = new Command()
     .name('mdlive')
@@ -99,6 +103,7 @@ const createProgram = (cwd: string): Command => {
     .option('--theme <mode>', 'color theme: auto (follow the OS setting), light or dark', DEFAULT_THEME)
     .option('--no-default-css', 'do not load the default GitHub style and layout')
     .option('--front-matter <mode>', 'front matter display: table or hide', DEFAULT_FRONT_MATTER)
+    .option('--include <glob>', INCLUDE_DESCRIPTION, collect, [] as readonly string[])
     .action((dir: string | undefined, raw: unknown) => runServe(unwrap(parseServeOptions(dir, raw, cwd))));
 
   program
@@ -109,6 +114,7 @@ const createProgram = (cwd: string): Command => {
     .option('--theme <mode>', 'color theme: auto (follow the OS setting), light or dark', DEFAULT_THEME)
     .option('--no-default-css', 'do not load the default GitHub style and layout')
     .option('--front-matter <mode>', 'front matter display: table or hide', DEFAULT_FRONT_MATTER)
+    .option('--include <glob>', INCLUDE_DESCRIPTION, collect, [] as readonly string[])
     .option('--strict', 'treat warnings such as missing images as errors')
     .action((dir: string | undefined, raw: unknown) => runBuild(unwrap(parseBuildOptions(dir, raw, cwd))));
 
